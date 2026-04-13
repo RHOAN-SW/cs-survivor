@@ -498,8 +498,8 @@ const SKILL_DB = {
         desc: "화면을 마구 튕겨 다니며 적들의 로직을 꼬아버리는 관통 투사체를 방출합니다."
     },
     round_robin: {
-        id: 'round_robin', name: '라운드 로빈', type: 'weapon', max: 5,
-        desc: "주위를 도는 타격 판정 망치를 소환합니다. 닿은 적은 튕겨납니다."
+        id: 'round_robin', name: '쿨링팬', type: 'weapon', max: 5,
+        desc: "주위를 도는 타격 판정 쿨링팬을 소환합니다. 닿은 적은 튕겨납니다."
     },
     stack_overflow: {
         id: 'stack_overflow', name: 'Stack Overflow', type: 'weapon', max: 5,
@@ -518,8 +518,8 @@ const SKILL_DB = {
         desc: "print + 키보드 최고레벨 달성! 사방으로 로그를 난사합니다."
     },
     context_switch: {
-        id: 'context_switch', name: '컨텍스트 스위칭 (진화)', type: 'evolution', max: 1,
-        desc: "라운드로빈 + 카페인 최고레벨 달성! 망치가 폭주하며 개수와 속도가 증가합니다."
+        id: 'context_switch', name: '오버클럭 (진화)', type: 'evolution', max: 1,
+        desc: "쿨링팬 + 카페인 최고레벨 달성! 쿨링팬이 폭주하며 개수와 속도가 증가합니다."
     }
 };
 
