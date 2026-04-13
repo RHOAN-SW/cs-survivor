@@ -3,7 +3,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // 모바일 감지
-const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || ('ontouchstart' in window && window.innerWidth < 840);
 
 // 모바일에서는 캔버스를 더 크게 만들어 화면을 넓게 보여줌 (배율 낮춤)
@@ -41,7 +41,7 @@ function getLocalScores() {
     try {
         const data = localStorage.getItem(STORAGE_KEY);
         return data ? JSON.parse(data) : [];
-    } catch(e) {
+    } catch (e) {
         return [];
     }
 }
@@ -70,7 +70,7 @@ async function submitScoreToStorage(nickname, time, level) {
             });
             if (!res.ok) throw new Error('서버 응답 오류');
             return { success: true };
-        } catch(e) {
+        } catch (e) {
             console.error('API 저장 실패:', e);
             return { success: false, error: e.message };
         }
@@ -92,7 +92,7 @@ async function fetchLeaderboard() {
             const res = await fetch(API_CONFIG.baseUrl + API_CONFIG.endpoints.getScores);
             if (!res.ok) throw new Error('서버 응답 오류');
             return await res.json();
-        } catch(e) {
+        } catch (e) {
             console.error('API 조회 실패:', e);
             return getLocalScores(); // API 실패 시 로컬 fallback
         }
@@ -102,7 +102,7 @@ async function fetchLeaderboard() {
 }
 
 // 리더보드 UI 렌더링
-window.loadLeaderboard = async function() {
+window.loadLeaderboard = async function () {
     const tbody = document.getElementById('leaderboard-tbody');
     const emptyMsg = document.getElementById('leaderboard-empty');
     const scores = await fetchLeaderboard();
@@ -146,7 +146,7 @@ function escapeHtml(text) {
 }
 
 // 점수 등록 버튼 핸들러
-window.submitScore = async function() {
+window.submitScore = async function () {
     const input = document.getElementById('nickname-input');
     const btn = document.getElementById('submit-score-btn');
     const status = document.getElementById('submit-status');
@@ -215,7 +215,7 @@ let frameCount = 0;
 
 const keys = {};
 
-window.togglePause = function() {
+window.togglePause = function () {
     if (gameState === 'playing') {
         gameState = 'paused';
         document.getElementById('pause-modal').classList.remove('hidden');
@@ -377,7 +377,7 @@ gameViewport.addEventListener('touchcancel', e => {
 });
 
 // 전체화면 토글
-window.toggleFullscreen = function() {
+window.toggleFullscreen = function () {
     const container = document.getElementById('game-container');
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         const el = document.documentElement;
@@ -451,8 +451,8 @@ const SKILL_DB = {
         desc: "위로 무거운 커밋을 던져 치명적인 피해를 줍니다."
     },
     memory_leak: {
-        id: 'memory_leak', name: '메모리 누수', type: 'weapon', max: 5,
-        desc: "화면을 마구 튕겨다니며 관통하는 오브젝트를 방출합니다."
+        id: 'memory_leak', name: '스파게티코드', type: 'weapon', max: 5,
+        desc: "화면을 마구 튕겨 다니며 적들의 로직을 꼬아버리는 관통 투사체를 방출합니다."
     },
     round_robin: {
         id: 'round_robin', name: '라운드 로빈', type: 'weapon', max: 5,
@@ -516,30 +516,30 @@ function triggerLevelUp() {
     const modal = document.getElementById('levelup-modal');
     const optionsContainer = document.getElementById('skill-options');
     optionsContainer.innerHTML = '';
-    
+
     // 가능한 스킬 풀 작성
     let pool = [];
-    
+
     // 진화 조건 체크
-    if(player.skills['print'] === 5 && player.skills['keyboard'] > 0 && !player.skills['auto_test']) {
+    if (player.skills['print'] === 5 && player.skills['keyboard'] > 0 && !player.skills['auto_test']) {
         pool.push(SKILL_DB['auto_test']);
     }
-    if(player.skills['round_robin'] === 5 && player.skills['caffeine'] > 0 && !player.skills['context_switch']) {
+    if (player.skills['round_robin'] === 5 && player.skills['caffeine'] > 0 && !player.skills['context_switch']) {
         pool.push(SKILL_DB['context_switch']);
     }
 
     // 일반 스킬 추가
     Object.values(SKILL_DB).forEach(s => {
-        if(s.type === 'evolution') return; // 진화는 조건부로만
+        if (s.type === 'evolution') return; // 진화는 조건부로만
         let currentLvl = player.skills[s.id] || 0;
-        if(currentLvl < s.max) pool.push(s);
+        if (currentLvl < s.max) pool.push(s);
     });
 
     // 랜덤으로 4개(이하) 뽑기
     pool.sort(() => Math.random() - 0.5);
     let choices = pool.slice(0, 4);
 
-    if(choices.length === 0) {
+    if (choices.length === 0) {
         // 더이상 올릴 스킬이 없으면 체력이나 돈 보상
         choices.push({ id: 'heal', name: '핫식스 (회복)', desc: '체력을 30 회복합니다.', max: 1 });
     }
@@ -549,23 +549,23 @@ function triggerLevelUp() {
         btn.className = 'skill-btn';
         let cur = player.skills[c.id] || 0;
         let isEvo = c.type === 'evolution';
-        
+
         btn.innerHTML = `
             <div class="skill-info">
                 <div class="skill-name" style="color: ${isEvo ? '#f472b6' : 'var(--accent)'}">${c.name}</div>
                 <div class="skill-desc">${c.desc}</div>
             </div>
-            <div class="skill-level">${c.id==='heal'?'':`Lv.${cur+1}`}</div>
+            <div class="skill-level">${c.id === 'heal' ? '' : `Lv.${cur + 1}`}</div>
         `;
-        
+
         btn.onclick = () => {
-            if(c.id === 'heal') {
+            if (c.id === 'heal') {
                 player.hp = Math.min(player.maxHp, player.hp + 30);
             } else {
                 player.skills[c.id] = (player.skills[c.id] || 0) + 1;
                 // 진화 시 원본무기 숨기기 위함 처리
-                if(c.id === 'auto_test') player.skills['print'] = 0; 
-                if(c.id === 'context_switch') player.skills['round_robin'] = 0;
+                if (c.id === 'auto_test') player.skills['print'] = 0;
+                if (c.id === 'context_switch') player.skills['round_robin'] = 0;
             }
             modal.classList.add('hidden');
             gameState = 'playing';
@@ -589,28 +589,28 @@ function update(dt) {
 
     // 플레이어 이동
     let dx = 0; let dy = 0;
-    
+
     // 키보드 입력
     if (keys['KeyW'] || keys['ArrowUp']) { dy -= 1; player.dir = 3; }
     if (keys['KeyS'] || keys['ArrowDown']) { dy += 1; player.dir = 0; }
     if (keys['KeyA'] || keys['ArrowLeft']) { dx -= 1; player.dir = 1; }
     if (keys['KeyD'] || keys['ArrowRight']) { dx += 1; player.dir = 2; }
-    
+
     // 마우스 꾹 누르기 입력 (키보드 입력이 없을 때)
     if (dx === 0 && dy === 0 && mouse.pressed) {
         // 마우스 위치를 월드 좌표로 변환
         let worldMouseX = mouse.x + (player.x - canvas.width / 2);
         let worldMouseY = mouse.y + (player.y - canvas.height / 2);
-        
+
         dx = worldMouseX - player.x;
         dy = worldMouseY - player.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
         // 플레이어 근처(15px 이내)면 이동 안함 (떨림 방지)
         if (dist > 15) {
             dx /= dist;
             dy /= dist;
-            
+
             // 방향 설정
             if (Math.abs(dx) > Math.abs(dy)) {
                 player.dir = dx < 0 ? 1 : 2;
@@ -622,14 +622,14 @@ function update(dt) {
             dy = 0;
         }
     }
-    
+
     // 가상 조이스틱 입력 (키보드/마우스 입력이 없을 때)
     if (dx === 0 && dy === 0 && joystick.active) {
         let deadzone = 0.15;
         if (Math.abs(joystick.dx) > deadzone || Math.abs(joystick.dy) > deadzone) {
             dx = joystick.dx;
             dy = joystick.dy;
-            
+
             // 방향 설정
             if (Math.abs(dx) > Math.abs(dy)) {
                 player.dir = dx < 0 ? 1 : 2;
@@ -638,14 +638,14 @@ function update(dt) {
             }
         }
     }
-    
+
     if (dx !== 0 && dy !== 0) {
-        let length = Math.sqrt(dx*dx + dy*dy);
+        let length = Math.sqrt(dx * dx + dy * dy);
         dx /= length; dy /= length;
     }
     player.x += dx * player.speed * speedMult * dt;
     player.y += dy * player.speed * speedMult * dt;
-    
+
     // 애니메이션 프레임 처리
     if (dx !== 0 || dy !== 0) {
         player.frameTimer += dt * 8; // 발걸음 속도
@@ -657,45 +657,45 @@ function update(dt) {
     player.frame = fSeq[Math.floor(player.frameTimer)];
 
     // 무기 처리
-    
+
     // 1. print("디버깅") & 진화(자동화 테스트)
     weaponsState.printTimer -= dt;
     if (weaponsState.printTimer <= 0) {
         let isEvo = player.skills['auto_test'] > 0;
         let pLvl = player.skills['print'];
-        
-        if(isEvo || pLvl > 0) {
+
+        if (isEvo || pLvl > 0) {
             let count = isEvo ? 8 : (pLvl === 5 ? 3 : (pLvl >= 3 ? 2 : 1));
-            weaponsState.printTimer = (isEvo ? 0.3 : 1.2 - (pLvl*0.1)) * coolMult;
-            
-            if(isEvo) {
+            weaponsState.printTimer = (isEvo ? 0.3 : 1.2 - (pLvl * 0.1)) * coolMult;
+
+            if (isEvo) {
                 // 사방으로 발사
-                for(let i=0; i<count; i++) {
-                    let a = (Math.PI*2 / count) * i + (gameTime*5); // 회전하며 난사
+                for (let i = 0; i < count; i++) {
+                    let a = (Math.PI * 2 / count) * i + (gameTime * 5); // 회전하며 난사
                     projectiles.push({
                         x: player.x, y: player.y,
-                        vx: Math.cos(a)*300, vy: Math.sin(a)*300,
+                        vx: Math.cos(a) * 300, vy: Math.sin(a) * 300,
                         life: 1.5, type: 'print', damage: 15
                     });
                 }
             } else {
                 // 가장 가까운 적 타겟팅
-                if(enemies.length > 0) {
+                if (enemies.length > 0) {
                     let target = enemies.reduce((closest, cur) => {
                         let dCur = getDistance(player.x, player.y, cur.x, cur.y);
                         let dClose = getDistance(player.x, player.y, closest.x, closest.y);
                         return dCur < dClose ? cur : closest;
                     });
-                    
-                    for(let i=0; i<count; i++) {
+
+                    for (let i = 0; i < count; i++) {
                         setTimeout(() => {
-                            if(gameState !== 'playing') return;
+                            if (gameState !== 'playing') return;
                             let angle = Math.atan2(target.y - player.y, target.x - player.x);
-                            angle += (Math.random()-0.5)*0.3; // 약간의 산탄
+                            angle += (Math.random() - 0.5) * 0.3; // 약간의 산탄
                             projectiles.push({
                                 x: player.x, y: player.y,
-                                vx: Math.cos(angle)*400, vy: Math.sin(angle)*400,
-                                life: 1, type: 'print', damage: 10 + pLvl*5
+                                vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
+                                life: 1, type: 'print', damage: 10 + pLvl * 5
                             });
                         }, i * 100);
                     }
@@ -707,30 +707,30 @@ function update(dt) {
     // 2. 라운드 로빈 (망치) 처리
     let rrLvl = player.skills['round_robin'] || 0;
     let isRREvo = player.skills['context_switch'] > 0;
-    
-    if(rrLvl > 0 || isRREvo) {
+
+    if (rrLvl > 0 || isRREvo) {
         let count = isRREvo ? 5 : (rrLvl >= 4 ? 3 : (rrLvl >= 2 ? 2 : 1));
         let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
         let radius = 80 + (rrLvl * 10);
         let damage = isRREvo ? 40 : 15 + (rrLvl * 5);
-        
-        for(let i=0; i<count; i++) {
+
+        for (let i = 0; i < count; i++) {
             let angle = (gameTime * rrSpeed) + ((Math.PI * 2 / count) * i);
             let hx = player.x + Math.cos(angle) * radius;
             let hy = player.y + Math.sin(angle) * radius;
-            
+
             // 시각화용 데이터는 draw에서 바로 계산하지만 타격 판정은 여기서
             // 무기로서의 히트 박스 (간이 계산)
             enemies.forEach(en => {
                 let dist = getDistance(hx, hy, en.x, en.y);
-                if(dist < en.radius + 15) {
-                    if(!en.lastHitTime) en.lastHitTime = {};
-                    let sourceId = 'hammer_'+i;
-                    if(gameTime - (en.lastHitTime[sourceId] || 0) > 0.4) {
+                if (dist < en.radius + 15) {
+                    if (!en.lastHitTime) en.lastHitTime = {};
+                    let sourceId = 'hammer_' + i;
+                    if (gameTime - (en.lastHitTime[sourceId] || 0) > 0.4) {
                         en.hp -= damage;
                         en.lastHitTime[sourceId] = gameTime;
                         spawnFloatingText(en.x, en.y, damage.toString(), '#fcd34d');
-                        
+
                         // 넉백
                         let kbAngle = Math.atan2(en.y - hy, en.x - hx);
                         en.x += Math.cos(kbAngle) * 20;
@@ -743,13 +743,13 @@ function update(dt) {
 
     // 3. Stack Overflow (광역기)
     let soLvl = player.skills['stack_overflow'] || 0;
-    if(soLvl > 0) {
+    if (soLvl > 0) {
         weaponsState.stackTimer -= dt;
-        if(weaponsState.stackTimer <= 0) {
+        if (weaponsState.stackTimer <= 0) {
             weaponsState.stackTimer = 3.0 * coolMult;
             let radius = 100 + (soLvl * 30);
             let damage = 30 + (soLvl * 20);
-            
+
             // 시각 효과 발동용 
             projectiles.push({
                 x: player.x, y: player.y, type: 'stack_aoe',
@@ -757,26 +757,26 @@ function update(dt) {
             });
         }
     }
-    
+
     // 4. C 포인터 (단검 매커니즘)
     let cpLvl = player.skills['c_pointer'] || 0;
-    if(cpLvl > 0) {
+    if (cpLvl > 0) {
         weaponsState.cpointerTimer -= dt;
-        if(weaponsState.cpointerTimer <= 0) {
+        if (weaponsState.cpointerTimer <= 0) {
             weaponsState.cpointerTimer = Math.max(0.3, 1.2 - (cpLvl * 0.1)) * coolMult;
-            for(let i=0; i<cpLvl; i++) {
+            for (let i = 0; i < cpLvl; i++) {
                 setTimeout(() => {
-                    if(gameState !== 'playing') return;
+                    if (gameState !== 'playing') return;
                     let angle = 0;
-                    if(player.dir === 0) angle = Math.PI/2;
-                    else if(player.dir === 1) angle = Math.PI;
-                    else if(player.dir === 2) angle = 0;
-                    else if(player.dir === 3) angle = -Math.PI/2;
-                    angle += (Math.random()-0.5)*0.1;
+                    if (player.dir === 0) angle = Math.PI / 2;
+                    else if (player.dir === 1) angle = Math.PI;
+                    else if (player.dir === 2) angle = 0;
+                    else if (player.dir === 3) angle = -Math.PI / 2;
+                    angle += (Math.random() - 0.5) * 0.1;
                     projectiles.push({
                         x: player.x, y: player.y,
-                        vx: Math.cos(angle)*600, vy: Math.sin(angle)*600,
-                        life: 2, type: 'c_pointer', damage: 15 + cpLvl*5
+                        vx: Math.cos(angle) * 600, vy: Math.sin(angle) * 600,
+                        life: 2, type: 'c_pointer', damage: 15 + cpLvl * 5
                     });
                 }, i * 150);
             }
@@ -785,20 +785,20 @@ function update(dt) {
 
     // 5. Git Push (도끼 매커니즘)
     let gpLvl = player.skills['git_push'] || 0;
-    if(gpLvl > 0) {
+    if (gpLvl > 0) {
         weaponsState.gitpushTimer -= dt;
-        if(weaponsState.gitpushTimer <= 0) {
+        if (weaponsState.gitpushTimer <= 0) {
             let count = Math.ceil(gpLvl / 2);
             weaponsState.gitpushTimer = Math.max(0.8, 2.5 - (gpLvl * 0.2)) * coolMult;
-            for(let i=0; i<count; i++) {
+            for (let i = 0; i < count; i++) {
                 setTimeout(() => {
-                    if(gameState !== 'playing') return;
-                    let vx = (Math.random()-0.5)*200;
-                    if(player.dir===1) vx -= 100; else if(player.dir===2) vx += 100;
+                    if (gameState !== 'playing') return;
+                    let vx = (Math.random() - 0.5) * 200;
+                    if (player.dir === 1) vx -= 100; else if (player.dir === 2) vx += 100;
                     projectiles.push({
                         x: player.x, y: player.y - 10,
-                        vx: vx, vy: -500 - Math.random()*200, gravity: 800,
-                        life: 3, type: 'git_push', damage: 30 + gpLvl*15
+                        vx: vx, vy: -500 - Math.random() * 200, gravity: 800,
+                        life: 3, type: 'git_push', damage: 30 + gpLvl * 15
                     });
                 }, i * 200);
             }
@@ -807,17 +807,17 @@ function update(dt) {
 
     // 6. 메모리 누수 (룬트레이서 매커니즘)
     let mlLvl = player.skills['memory_leak'] || 0;
-    if(mlLvl > 0) {
+    if (mlLvl > 0) {
         weaponsState.memoryleakTimer -= dt;
-        if(weaponsState.memoryleakTimer <= 0) {
+        if (weaponsState.memoryleakTimer <= 0) {
             weaponsState.memoryleakTimer = 3.0 * coolMult;
             let count = Math.ceil(mlLvl / 1.5);
-            for(let i=0; i<count; i++) {
+            for (let i = 0; i < count; i++) {
                 let angle = Math.random() * Math.PI * 2;
                 projectiles.push({
                     x: player.x, y: player.y,
-                    vx: Math.cos(angle)*400, vy: Math.sin(angle)*400,
-                    life: 5 + (mlLvl*0.5), type: 'memory_leak', damage: 10 + mlLvl*5,
+                    vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
+                    life: 5 + (mlLvl * 0.5), type: 'memory_leak', damage: 10 + mlLvl * 5,
                     lastHit: {}
                 });
             }
@@ -825,33 +825,33 @@ function update(dt) {
     }
 
     // 투사체 업데이트
-    for(let i = projectiles.length - 1; i >= 0; i--) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
         let p = projectiles[i];
         p.life -= dt;
-        
-        if(p.type === 'print') {
+
+        if (p.type === 'print') {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
-            
+
             // 충돌 확인
             let hit = false;
-            for(let j = enemies.length - 1; j >= 0; j--) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
                 let en = enemies[j];
-                if(getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
+                if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
                     en.hp -= p.damage;
                     hit = true;
                     spawnFloatingText(en.x, en.y, p.damage.toString(), '#f8fafc');
                     break;
                 }
             }
-            if(hit || p.life <= 0) projectiles.splice(i, 1);
-        } else if(p.type === 'stack_aoe') {
+            if (hit || p.life <= 0) projectiles.splice(i, 1);
+        } else if (p.type === 'stack_aoe') {
             // 커지는 원 형태
-            p.currentRadius = (1 - (p.life/0.5)) * p.maxRadius;
-            if(!p.hasHit) {
-                if(p.life < 0.25) { // 타이밍상 중간쯤 폭발 판정
+            p.currentRadius = (1 - (p.life / 0.5)) * p.maxRadius;
+            if (!p.hasHit) {
+                if (p.life < 0.25) { // 타이밍상 중간쯤 폭발 판정
                     enemies.forEach(en => {
-                        if(getDistance(p.x, p.y, en.x, en.y) < p.maxRadius) {
+                        if (getDistance(p.x, p.y, en.x, en.y) < p.maxRadius) {
                             en.hp -= p.damage;
                             spawnFloatingText(en.x, en.y, p.damage.toString(), '#fb7185');
                         }
@@ -859,74 +859,74 @@ function update(dt) {
                     p.hasHit = true;
                 }
             }
-            if(p.life <= 0) projectiles.splice(i, 1);
-        } else if(p.type === 'c_pointer') {
+            if (p.life <= 0) projectiles.splice(i, 1);
+        } else if (p.type === 'c_pointer') {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             let hit = false;
-            for(let j = enemies.length - 1; j >= 0; j--) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
                 let en = enemies[j];
-                if(getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
+                if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
                     en.hp -= p.damage;
                     hit = true;
                     spawnFloatingText(en.x, en.y, p.damage.toString(), '#34d399');
                     break;
                 }
             }
-            if(hit || p.life <= 0) projectiles.splice(i, 1);
-        } else if(p.type === 'git_push') {
+            if (hit || p.life <= 0) projectiles.splice(i, 1);
+        } else if (p.type === 'git_push') {
             p.vy += p.gravity * dt;
             p.x += p.vx * dt;
             p.y += p.vy * dt;
-            for(let j = enemies.length - 1; j >= 0; j--) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
                 let en = enemies[j];
-                if(getDistance(p.x, p.y, en.x, en.y) < en.radius + 15) {
-                    if(!p.lastHit) p.lastHit = {};
-                    if(gameTime - (p.lastHit[en.name+j] || 0) > 0.5) {
+                if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 15) {
+                    if (!p.lastHit) p.lastHit = {};
+                    if (gameTime - (p.lastHit[en.name + j] || 0) > 0.5) {
                         en.hp -= p.damage;
-                        p.lastHit[en.name+j] = gameTime;
+                        p.lastHit[en.name + j] = gameTime;
                         spawnFloatingText(en.x, en.y, p.damage.toString(), '#f43f5e');
                     }
                 }
             }
-            if(p.life <= 0) projectiles.splice(i, 1);
-        } else if(p.type === 'memory_leak') {
+            if (p.life <= 0) projectiles.splice(i, 1);
+        } else if (p.type === 'memory_leak') {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             // 화면 경계 반사
             let camX = player.x - canvas.width / 2;
             let camY = player.y - canvas.height / 2;
-            if(p.x < camX) { p.x = camX; p.vx *= -1; }
-            if(p.x > camX + canvas.width) { p.x = camX + canvas.width; p.vx *= -1; }
-            if(p.y < camY) { p.y = camY; p.vy *= -1; }
-            if(p.y > camY + canvas.height) { p.y = camY + canvas.height; p.vy *= -1; }
-            
-            for(let j = enemies.length - 1; j >= 0; j--) {
+            if (p.x < camX) { p.x = camX; p.vx *= -1; }
+            if (p.x > camX + canvas.width) { p.x = camX + canvas.width; p.vx *= -1; }
+            if (p.y < camY) { p.y = camY; p.vy *= -1; }
+            if (p.y > camY + canvas.height) { p.y = camY + canvas.height; p.vy *= -1; }
+
+            for (let j = enemies.length - 1; j >= 0; j--) {
                 let en = enemies[j];
-                if(getDistance(p.x, p.y, en.x, en.y) < en.radius + 10) {
-                    if(gameTime - (p.lastHit[en.name+j] || 0) > 0.5) {
+                if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 10) {
+                    if (gameTime - (p.lastHit[en.name + j] || 0) > 0.5) {
                         en.hp -= p.damage;
-                        p.lastHit[en.name+j] = gameTime;
+                        p.lastHit[en.name + j] = gameTime;
                         spawnFloatingText(en.x, en.y, p.damage.toString(), '#a78bfa');
                     }
                 }
             }
-            if(p.life <= 0) projectiles.splice(i, 1);
+            if (p.life <= 0) projectiles.splice(i, 1);
         }
     }
 
     // 적 스폰
     let spawnRate = Math.max(0.1, 1.0 - (gameTime / 60) * 0.5); // 점점 빠르게
-    if(frameCount % Math.floor(60 * spawnRate) === 0) {
-        let type = ENEMY_TYPES[Math.min(ENEMY_TYPES.length-1, Math.floor(Math.random() * (gameTime / 30 + 1)))];
+    if (frameCount % Math.floor(60 * spawnRate) === 0) {
+        let type = ENEMY_TYPES[Math.min(ENEMY_TYPES.length - 1, Math.floor(Math.random() * (gameTime / 30 + 1)))];
         let angle = Math.random() * Math.PI * 2;
-        let dist = canvas.width/2 + 100;
+        let dist = canvas.width / 2 + 100;
         enemies.push({
-            x: player.x + Math.cos(angle)*dist,
-            y: player.y + Math.sin(angle)*dist,
-            hp: type.hp * (1 + (gameTime/60)), // 시간이 갈수록 체력 증가
-            maxHp: type.hp * (1 + (gameTime/60)),
-            speed: type.speed * (0.8 + Math.random()*0.4),
+            x: player.x + Math.cos(angle) * dist,
+            y: player.y + Math.sin(angle) * dist,
+            hp: type.hp * (1 + (gameTime / 60)), // 시간이 갈수록 체력 증가
+            maxHp: type.hp * (1 + (gameTime / 60)),
+            speed: type.speed * (0.8 + Math.random() * 0.4),
             radius: type.radius,
             color: type.color,
             name: type.name,
@@ -936,17 +936,17 @@ function update(dt) {
     }
 
     // 적 이동 및 충돌
-    for(let i = enemies.length - 1; i >= 0; i--) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
         let en = enemies[i];
-        
+
         if (en.hp <= 0) {
             // 사망 및 드랍 처리
             let rnd = Math.random();
-            if(rnd < 0.005) { // 0.5% 확률 족보
+            if (rnd < 0.005) { // 0.5% 확률 족보
                 expGems.push({ x: en.x, y: en.y, type: 'cheat_sheet' });
-            } else if(rnd < 0.025) { // 2% 확률 폭탄
+            } else if (rnd < 0.025) { // 2% 확률 폭탄
                 expGems.push({ x: en.x, y: en.y, type: 'bomb' });
-            } else if(rnd < 0.07) { // 4.5% 확률 에너지 드링크
+            } else if (rnd < 0.07) { // 4.5% 확률 에너지 드링크
                 expGems.push({ x: en.x, y: en.y, type: 'energy_drink' });
             } else {
                 expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
@@ -957,8 +957,8 @@ function update(dt) {
 
         let ex = player.x - en.x;
         let ey = player.y - en.y;
-        let dist = Math.sqrt(ex*ex + ey*ey);
-        
+        let dist = Math.sqrt(ex * ex + ey * ey);
+
         if (dist > 0) {
             en.x += (ex / dist) * en.speed * dt;
             en.y += (ey / dist) * en.speed * dt;
@@ -967,7 +967,7 @@ function update(dt) {
         // 플레이어와 충돌 (피격)
         if (dist < en.radius + 10) {
             player.hp -= 10 * dt;
-            if(player.hp <= 0) {
+            if (player.hp <= 0) {
                 gameState = 'gameover';
                 document.getElementById('final-time').innerText = getFormattedTime(gameTime);
                 document.getElementById('gameover-modal').classList.remove('hidden');
@@ -979,7 +979,7 @@ function update(dt) {
                 const ss = document.getElementById('submit-status');
                 if (ss) { ss.textContent = ''; ss.className = 'submit-status'; }
                 // 닉네임 입력에 포커스
-                setTimeout(() => { if(ni) ni.focus(); }, 300);
+                setTimeout(() => { if (ni) ni.focus(); }, 300);
             }
         }
     }
@@ -987,16 +987,16 @@ function update(dt) {
     updateHudText();
 
     // 경험치 구슬 먹기
-    for(let i = expGems.length - 1; i >= 0; i--) {
+    for (let i = expGems.length - 1; i >= 0; i--) {
         let g = expGems[i];
         let dist = getDistance(player.x, player.y, g.x, g.y);
-        
+
         // 자석 기믹 (가까가면 빨려옴)
         if (dist < 100) {
             g.x += (player.x - g.x) / dist * 400 * dt;
             g.y += (player.y - g.y) / dist * 400 * dt;
         }
-        
+
         if (dist < 20) {
             if (g.type === 'energy_drink') {
                 player.hp = Math.min(player.maxHp, player.hp + 30);
@@ -1007,14 +1007,14 @@ function update(dt) {
             } else if (g.type === 'bomb') {
                 // 💣 폭탄: 화면 내 모든 적 처치 + 경험치 드랍
                 spawnFloatingText(player.x, player.y - 40, "💣 BOOM!", '#fbbf24');
-                
+
                 // 폭발 이펙트
                 projectiles.push({
                     x: player.x, y: player.y, type: 'bomb_explode',
                     maxRadius: Math.max(canvas.width, canvas.height),
                     currentRadius: 0, life: 0.8
                 });
-                
+
                 // 모든 적 처치 & 경험치 드랍
                 let killCount = enemies.length;
                 for (let j = enemies.length - 1; j >= 0; j--) {
@@ -1023,7 +1023,7 @@ function update(dt) {
                     expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
                 }
                 enemies.length = 0; // 모든 적 제거
-                
+
                 spawnFloatingText(player.x, player.y - 60, killCount + " KILL!", '#ef4444');
             } else {
                 addExp(g.val || 1);
@@ -1033,10 +1033,10 @@ function update(dt) {
     }
 
     // 데미지 텍스트
-    for(let i = damageTexts.length - 1; i >= 0; i--) {
+    for (let i = damageTexts.length - 1; i >= 0; i--) {
         damageTexts[i].life -= dt;
         damageTexts[i].y -= 20 * dt; // 위로 떠오름
-        if(damageTexts[i].life <= 0) damageTexts.splice(i, 1);
+        if (damageTexts[i].life <= 0) damageTexts.splice(i, 1);
     }
 }
 
@@ -1058,7 +1058,7 @@ function draw() {
         let h = mapImg.height;
         let sX = Math.floor(camX / w) * w;
         let sY = Math.floor(camY / h) * h;
-        
+
         for (let x = sX; x < camX + canvas.width; x += w) {
             for (let y = sY; y < camY + canvas.height; y += h) {
                 ctx.drawImage(mapImg, x, y, w, h);
@@ -1072,23 +1072,23 @@ function draw() {
         let sX = Math.floor(camX / grid) * grid;
         let sY = Math.floor(camY / grid) * grid;
         ctx.beginPath();
-        for(let x=sX; x<camX+canvas.width; x+=grid) { ctx.moveTo(x, camY); ctx.lineTo(x, camY+canvas.height); }
-        for(let y=sY; y<camY+canvas.height; y+=grid) { ctx.moveTo(camX, y); ctx.lineTo(camX+canvas.width, y); }
+        for (let x = sX; x < camX + canvas.width; x += grid) { ctx.moveTo(x, camY); ctx.lineTo(x, camY + canvas.height); }
+        for (let y = sY; y < camY + canvas.height; y += grid) { ctx.moveTo(camX, y); ctx.lineTo(camX + canvas.width, y); }
         ctx.stroke();
     }
 
     // 드랍 아이템 그리기
     expGems.forEach(g => {
-        if(g.type === 'energy_drink') {
+        if (g.type === 'energy_drink') {
             ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(g.x - 6, g.y - 10, 12, 16); 
+            ctx.fillRect(g.x - 6, g.y - 10, 12, 16);
             ctx.fillStyle = '#fde047';
             ctx.font = '10px Fira Code';
             ctx.textAlign = 'center';
             ctx.fillText("⚡", g.x, g.y + 2);
         } else if (g.type === 'cheat_sheet') {
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(g.x - 8, g.y - 12, 16, 20); 
+            ctx.fillRect(g.x - 8, g.y - 12, 16, 20);
             ctx.fillStyle = '#ef4444';
             ctx.font = 'bold 12px Fira Code';
             ctx.textAlign = 'center';
@@ -1099,13 +1099,13 @@ function draw() {
             ctx.save();
             ctx.translate(g.x, g.y);
             ctx.scale(pulse, pulse);
-            
+
             // 외곽 글로우
             ctx.beginPath();
             ctx.arc(0, 0, 14, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
             ctx.fill();
-            
+
             // 본체
             ctx.beginPath();
             ctx.arc(0, 0, 10, 0, Math.PI * 2);
@@ -1114,7 +1114,7 @@ function draw() {
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 2;
             ctx.stroke();
-            
+
             // 심지
             ctx.beginPath();
             ctx.moveTo(4, -8);
@@ -1122,54 +1122,54 @@ function draw() {
             ctx.strokeStyle = '#fbbf24';
             ctx.lineWidth = 2;
             ctx.stroke();
-            
+
             // 불꽃
             let sparkAlpha = 0.5 + Math.sin(gameTime * 15) * 0.5;
             ctx.beginPath();
             ctx.arc(8, -14, 3, 0, Math.PI * 2);
             ctx.fillStyle = `rgba(251, 191, 36, ${sparkAlpha})`;
             ctx.fill();
-            
+
             ctx.restore();
         } else {
             ctx.fillStyle = '#10b981';
             ctx.beginPath();
-            ctx.arc(g.x, g.y, 6 + (g.val || 1), 0, Math.PI*2);
+            ctx.arc(g.x, g.y, 6 + (g.val || 1), 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#a7f3d0';
             ctx.font = '10px Fira Code';
-            ctx.fillText(";", g.x-3, g.y+3); 
+            ctx.fillText(";", g.x - 3, g.y + 3);
         }
     });
 
     // 지면 장판 효과 (Stack Overflow & 폭탄 폭발)
     projectiles.forEach(p => {
-        if(p.type === 'stack_aoe') {
+        if (p.type === 'stack_aoe') {
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.currentRadius, 0, Math.PI*2);
+            ctx.arc(p.x, p.y, p.currentRadius, 0, Math.PI * 2);
             let alpha = p.life / 0.5;
             ctx.fillStyle = `rgba(225, 29, 72, ${alpha * 0.3})`;
             ctx.fill();
             ctx.lineWidth = 3;
             ctx.strokeStyle = `rgba(225, 29, 72, ${alpha})`;
             ctx.stroke();
-            
+
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
             ctx.font = '20px Fira Code';
             ctx.fillText("StackOverflowError", p.x - 90, p.y);
-        } else if(p.type === 'bomb_explode') {
+        } else if (p.type === 'bomb_explode') {
             // 폭탄 폭발 이펙트 (화면 전체 쇼크웨이브)
             let progress = 1 - (p.life / 0.8);
             p.currentRadius = progress * p.maxRadius;
             let alpha = p.life / 0.8;
-            
+
             // 쇼크웨이브 링
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.currentRadius, 0, Math.PI * 2);
             ctx.lineWidth = 8 * alpha;
             ctx.strokeStyle = `rgba(251, 191, 36, ${alpha * 0.8})`;
             ctx.stroke();
-            
+
             // 내부 글로우
             let grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.currentRadius * 0.5);
             grd.addColorStop(0, `rgba(239, 68, 68, ${alpha * 0.4})`);
@@ -1178,7 +1178,7 @@ function draw() {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.currentRadius * 0.5, 0, Math.PI * 2);
             ctx.fill();
-            
+
             // 💣 텍스트
             if (alpha > 0.5) {
                 ctx.fillStyle = `rgba(255, 255, 255, ${(alpha - 0.5) * 2})`;
@@ -1186,8 +1186,8 @@ function draw() {
                 ctx.textAlign = 'center';
                 ctx.fillText("SEGFAULT BOMB!", p.x, p.y);
             }
-            
-            if(p.life <= 0) {
+
+            if (p.life <= 0) {
                 projectiles.splice(projectiles.indexOf(p), 1);
             }
         }
@@ -1196,18 +1196,18 @@ function draw() {
     // 적 그리기
     enemies.forEach(en => {
         if (en.img && en.img.complete && en.img.naturalWidth !== 0) {
-            let destW = en.radius * 2.5; 
+            let destW = en.radius * 2.5;
             let destH = destW * (en.img.naturalHeight / en.img.naturalWidth);
             let bobbingY = Math.abs(Math.sin(gameTime * 8 + en.x)) * -4;
-            
+
             ctx.save();
             ctx.translate(en.x, en.y + bobbingY);
-            if (player.x < en.x) { 
+            if (player.x < en.x) {
                 ctx.scale(-1, 1);
             }
-            ctx.drawImage(en.img, -destW/2, -destH/2, destW, destH);
+            ctx.drawImage(en.img, -destW / 2, -destH / 2, destW, destH);
             ctx.restore();
-            
+
             ctx.fillStyle = '#0f172a';
             ctx.font = 'bold 12px Fira Code';
             ctx.textAlign = 'center';
@@ -1215,15 +1215,15 @@ function draw() {
         } else {
             ctx.fillStyle = en.color;
             ctx.beginPath();
-            ctx.arc(en.x, en.y, en.radius, 0, Math.PI*2);
+            ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2);
             ctx.fill();
-            
+
             ctx.fillStyle = '#0f172a';
             ctx.font = 'bold 12px Fira Code';
             ctx.textAlign = 'center';
             ctx.fillText(en.name, en.x, en.y + 4);
         }
-        
+
         // HP 막대
         let hpRatio = en.hp / en.maxHp;
         ctx.fillStyle = 'red';
@@ -1234,21 +1234,21 @@ function draw() {
 
     // 투사체 그리기
     projectiles.forEach(p => {
-        if(p.type === 'print') {
+        if (p.type === 'print') {
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(gameTime * 7); // 회전하며 날아감
-            
+
             // 책 표지
             ctx.fillStyle = '#1e3a8a';
             ctx.fillRect(-12, -14, 24, 28);
-            
+
             // 텍스트 (C++)
             ctx.fillStyle = 'white';
             ctx.font = 'bold 10px Fira Code';
             ctx.textAlign = 'center';
             ctx.fillText("C++", 0, 4);
-            
+
             ctx.restore();
         } else if (p.type === 'c_pointer') {
             ctx.save();
@@ -1265,7 +1265,7 @@ function draw() {
             ctx.rotate(gameTime * 7);
             ctx.fillStyle = '#f43f5e';
             ctx.beginPath();
-            ctx.arc(0, 0, 15, 0, Math.PI*2);
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = 'white';
             ctx.font = '10px Fira Code';
@@ -1294,21 +1294,21 @@ function draw() {
     // 궤도 무기 그리기 (라운드 로빈)
     let rrLvl = player.skills['round_robin'] || 0;
     let isRREvo = player.skills['context_switch'] > 0;
-    if(rrLvl > 0 || isRREvo) {
+    if (rrLvl > 0 || isRREvo) {
         let count = isRREvo ? 5 : (rrLvl >= 4 ? 3 : (rrLvl >= 2 ? 2 : 1));
         let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
         let radius = 80 + (rrLvl * 10);
-        
-        for(let i=0; i<count; i++) {
+
+        for (let i = 0; i < count; i++) {
             let angle = (gameTime * rrSpeed) + ((Math.PI * 2 / count) * i);
             let hx = player.x + Math.cos(angle) * radius;
             let hy = player.y + Math.sin(angle) * radius;
-            
+
             // 망치 그리기 (아이콘 또는 도형)
             ctx.save();
             ctx.translate(hx, hy);
-            ctx.rotate(angle + Math.PI/2); // 회전 방향 맞춰서
-            
+            ctx.rotate(angle + Math.PI / 2); // 회전 방향 맞춰서
+
             // 망치 자루
             ctx.fillStyle = '#78350f';
             ctx.fillRect(-2, -15, 4, 30);
@@ -1318,17 +1318,17 @@ function draw() {
             ctx.fillStyle = '#0f172a';
             ctx.font = '10px Fira Code';
             ctx.fillText("RR", 0, -10);
-            
+
             ctx.restore();
         }
     }
 
     // 플레이어 그리기 (단일 이미지)
     if (studentImg.complete && studentImg.naturalWidth !== 0) {
-        let destW = 60; 
+        let destW = 60;
         // 원본 비율에 맞게 높이 계산
         let destH = 60 * (studentImg.naturalHeight / studentImg.naturalWidth);
-        
+
         // 걷는 느낌을 주기 위한 통통 튀는 효과 (bobbing)
         let bobbingY = 0;
         let isMoving = (keys['KeyW'] || keys['ArrowUp'] || keys['KeyS'] || keys['ArrowDown'] || keys['KeyA'] || keys['ArrowLeft'] || keys['KeyD'] || keys['ArrowRight']);
@@ -1338,38 +1338,38 @@ function draw() {
 
         ctx.save();
         ctx.translate(player.x, player.y);
-        
+
         // 왼쪽 방향일 경우 좌우 반전
         if (player.dir === 1) {
             ctx.scale(-1, 1);
         }
 
         // 이미지의 발끝(하단 중심)을 player.x, player.y에 맞춤
-        ctx.drawImage(studentImg, -destW/2, -destH + bobbingY, destW, destH);
+        ctx.drawImage(studentImg, -destW / 2, -destH + bobbingY, destW, destH);
         ctx.restore();
-        
+
         let hpRatio = player.hp / player.maxHp;
         let pWidth = 40;
         let barY = player.y - destH - 15;
-        
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(player.x - pWidth/2, barY, pWidth, 5);
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 5);
         ctx.fillStyle = '#ef4444';
-        ctx.fillRect(player.x - pWidth/2, barY, pWidth * Math.max(0, hpRatio), 5);
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 5);
     } else {
         ctx.fillStyle = '#3b82f6';
         ctx.beginPath();
-        ctx.arc(player.x, player.y, 18, 0, Math.PI*2);
+        ctx.arc(player.x, player.y, 18, 0, Math.PI * 2);
         ctx.fill();
-        
+
         let hpRatio = player.hp / player.maxHp;
         let pWidth = 40;
         let barY = player.y - 18 - 15;
-        
+
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(player.x - pWidth/2, barY, pWidth, 5);
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 5);
         ctx.fillStyle = '#ef4444';
-        ctx.fillRect(player.x - pWidth/2, barY, pWidth * Math.max(0, hpRatio), 5);
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 5);
     }
 
     // 데미지 텍스트
@@ -1402,18 +1402,18 @@ function updateHudText() {
 // === 메인 루프 ===
 function loop() {
     requestAnimationFrame(loop);
-    
+
     let now = Date.now();
     let dt = (now - lastTime) / 1000;
     lastTime = now;
-    
-    // 최대 dt 보정 (창을 내렸다가 켰을 때 튕기는 현상 방지)
-    if(dt > 0.1) dt = 0.1;
 
-    if(gameState === 'playing') {
+    // 최대 dt 보정 (창을 내렸다가 켰을 때 튕기는 현상 방지)
+    if (dt > 0.1) dt = 0.1;
+
+    if (gameState === 'playing') {
         update(dt);
     }
-    
+
     // levelup 이나 gameover 여도 화면은 그린다 (배경 정지 상태용)
     draw();
 }
