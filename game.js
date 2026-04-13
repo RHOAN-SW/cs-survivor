@@ -21,88 +21,9 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 // ============================
-// 리더보드 / DB 연동 시스템
+// 리더보드 UI 렌더링
 // ============================
 
-// API 엔드포인트 설정 (DB 연동시 여기만 변경)
-const API_CONFIG = {
-    enabled: false,  // true로 변경하면 서버 API 사용
-    baseUrl: 'http://localhost:3000/api',  // 서버 URL
-    endpoints: {
-        getScores: '/scores',
-        postScore: '/scores'
-    }
-};
-
-// localStorage 키
-const STORAGE_KEY = 'cs_survivor_leaderboard';
-
-// 로컬 리더보드에서 데이터 가져오기
-function getLocalScores() {
-    try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
-    } catch (e) {
-        return [];
-    }
-}
-
-// 로컬 리더보드 저장
-function saveLocalScores(scores) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
-}
-
-// 점수 등록 (API 또는 로컬)
-async function submitScoreToStorage(nickname, time, level) {
-    const record = {
-        nickname: nickname,
-        time: time,          // 초 단위
-        level: level,
-        date: new Date().toISOString()
-    };
-
-    if (API_CONFIG.enabled) {
-        // === DB API 연동 ===
-        try {
-            const res = await fetch(API_CONFIG.baseUrl + API_CONFIG.endpoints.postScore, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(record)
-            });
-            if (!res.ok) throw new Error('서버 응답 오류');
-            return { success: true };
-        } catch (e) {
-            console.error('API 저장 실패:', e);
-            return { success: false, error: e.message };
-        }
-    } else {
-        // === 로컬 스토리지 ===
-        const scores = getLocalScores();
-        scores.push(record);
-        scores.sort((a, b) => b.time - a.time); // 오래 살아남은 순
-        if (scores.length > 50) scores.length = 50; // 최대 50개 유지
-        saveLocalScores(scores);
-        return { success: true };
-    }
-}
-
-// 리더보드 가져오기 (API 또는 로컬)
-async function fetchLeaderboard() {
-    if (API_CONFIG.enabled) {
-        try {
-            const res = await fetch(API_CONFIG.baseUrl + API_CONFIG.endpoints.getScores);
-            if (!res.ok) throw new Error('서버 응답 오류');
-            return await res.json();
-        } catch (e) {
-            console.error('API 조회 실패:', e);
-            return getLocalScores(); // API 실패 시 로컬 fallback
-        }
-    } else {
-        return getLocalScores();
-    }
-}
-
-// 리더보드 UI 렌더링
 window.loadLeaderboard = async function () {
     const tbody = document.getElementById('leaderboard-tbody');
     const emptyMsg = document.getElementById('leaderboard-empty');
@@ -498,7 +419,7 @@ const player = {
     y: 0,
     speed: 150, // 픽셀/초
     maxHp: 100,
-    hp: 100,
+    hp: 1,
     level: 1,
     exp: 0,
     expToNext: 10,
