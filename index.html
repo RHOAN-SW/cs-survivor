@@ -3,7 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>컴공 서바이버 (CS Survivor)</title>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -25,14 +28,22 @@
                     <span class="dot dot-green"></span>
                 </div>
                 <span class="window-title">cs_survivor.exe — 실행 중</span>
-                <div class="window-dots" style="visibility: hidden;">
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                </div>
+                <button id="fullscreen-btn" onclick="toggleFullscreen()" title="전체화면">⛶</button>
             </div>
 
             <!-- 게임 영역 -->
             <div id="game-viewport">
                 <canvas id="gameCanvas"></canvas>
+
+                <!-- 모바일 가상 조이스틱 -->
+                <div id="joystick-zone">
+                    <div id="joystick-base">
+                        <div id="joystick-stick"></div>
+                    </div>
+                </div>
+
+                <!-- 모바일 일시정지 버튼 -->
+                <button id="mobile-pause-btn" onclick="togglePause()">⏸</button>
 
                 <div id="ui-layer">
                     <div id="top-hud">
@@ -40,9 +51,9 @@
                             <div id="exp-bar"></div>
                         </div>
                         <div id="stats-row">
-                            <div>Level: <span id="val-level">1</span></div>
-                            <div>HP: <span id="val-hp">100</span>/100</div>
-                            <div>Time: <span id="val-time">00:00</span></div>
+                            <div>Lv.<span id="val-level">1</span></div>
+                            <div>HP: <span id="val-hp">100</span></div>
+                            <div><span id="val-time">00:00</span></div>
                         </div>
                     </div>
 
@@ -58,15 +69,15 @@
 
                     <div id="gameover-modal" class="modal-container hidden">
                         <div class="panel gameover-panel">
-                            <h2>런타임 에러 발생 (Game Over)</h2>
+                            <h2>Game Over</h2>
                             <p>재수강입니다~~</p>
                             <p>버틴 시간: <span id="final-time"></span></p>
 
                             <!-- 닉네임 입력 및 기록 등록 영역 -->
                             <div id="score-submit-area">
                                 <div class="nickname-input-group">
-                                    <input type="text" id="nickname-input" placeholder="닉네임 입력 (최대 10자)" maxlength="10" autocomplete="off" />
-                                    <button id="submit-score-btn" class="submit-btn" onclick="submitScore()">기록 등록</button>
+                                    <input type="text" id="nickname-input" placeholder="닉네임 (최대 10자)" maxlength="10" autocomplete="off" />
+                                    <button id="submit-score-btn" class="submit-btn" onclick="submitScore()">등록</button>
                                 </div>
                                 <p id="submit-status" class="submit-status"></p>
                             </div>
@@ -77,7 +88,7 @@
 
                     <div id="pause-modal" class="modal-container hidden">
                         <div class="panel">
-                            <h2>Pause (일시 정지)</h2>
+                            <h2>Pause</h2>
                             <p>디버깅 중...</p>
                             <button class="restart-btn" onclick="togglePause()">계속하기</button>
                             <div style="margin-top: 10px;"></div>
@@ -91,7 +102,7 @@
         <!-- 리더보드 (게임 컨테이너 아래) -->
         <div id="leaderboard-container">
             <div id="leaderboard-header">
-                <h2>🏆 생존 랭킹 (Top Survivors)</h2>
+                <h2>🏆 생존 랭킹</h2>
                 <button id="refresh-leaderboard-btn" onclick="loadLeaderboard()">새로고침</button>
             </div>
             <div id="leaderboard-body">
@@ -100,8 +111,8 @@
                         <tr>
                             <th>순위</th>
                             <th>닉네임</th>
-                            <th>생존 시간</th>
-                            <th>레벨</th>
+                            <th>시간</th>
+                            <th>Lv</th>
                             <th>날짜</th>
                         </tr>
                     </thead>

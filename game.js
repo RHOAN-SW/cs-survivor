@@ -227,6 +227,186 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys[e.code] = false);
 
+// 마우스 입력 상태
+const mouse = {
+    x: 0,        // 캔버스 내 마우스 X (화면 좌표)
+    y: 0,        // 캔버스 내 마우스 Y (화면 좌표)
+    pressed: false
+};
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button === 0 && gameState === 'playing') {
+        mouse.pressed = true;
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    }
+});
+
+canvas.addEventListener('mousemove', e => {
+    if (mouse.pressed) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    }
+});
+
+window.addEventListener('mouseup', e => {
+    if (e.button === 0) mouse.pressed = false;
+});
+
+// 터치: 가상 조이스틱 시스템
+const joystick = {
+    active: false,
+    startX: 0,
+    startY: 0,
+    dx: 0,     // -1 ~ 1 정규화된 방향
+    dy: 0,
+    touchId: null
+};
+
+const joystickZone = document.getElementById('joystick-zone');
+const joystickBase = document.getElementById('joystick-base');
+const joystickStick = document.getElementById('joystick-stick');
+const JOYSTICK_MAX = 40; // 최대 이동 반경
+
+if (joystickZone) {
+    joystickZone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (joystick.active) return;
+        const touch = e.changedTouches[0];
+        joystick.active = true;
+        joystick.touchId = touch.identifier;
+        const rect = joystickBase.getBoundingClientRect();
+        joystick.startX = rect.left + rect.width / 2;
+        joystick.startY = rect.top + rect.height / 2;
+        updateJoystick(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    joystickZone.addEventListener('touchmove', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystick.touchId) {
+                updateJoystick(touch.clientX, touch.clientY);
+            }
+        }
+    }, { passive: false });
+
+    joystickZone.addEventListener('touchend', e => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joystick.touchId) {
+                resetJoystick();
+            }
+        }
+    });
+
+    joystickZone.addEventListener('touchcancel', e => {
+        resetJoystick();
+    });
+}
+
+function updateJoystick(clientX, clientY) {
+    let dx = clientX - joystick.startX;
+    let dy = clientY - joystick.startY;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > JOYSTICK_MAX) {
+        dx = (dx / dist) * JOYSTICK_MAX;
+        dy = (dy / dist) * JOYSTICK_MAX;
+        dist = JOYSTICK_MAX;
+    }
+
+    // 정규화 (-1 ~ 1)
+    joystick.dx = dx / JOYSTICK_MAX;
+    joystick.dy = dy / JOYSTICK_MAX;
+
+    // 스틱 위치 업데이트
+    if (joystickStick) {
+        joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+}
+
+function resetJoystick() {
+    joystick.active = false;
+    joystick.touchId = null;
+    joystick.dx = 0;
+    joystick.dy = 0;
+    if (joystickStick) {
+        joystickStick.style.transform = 'translate(0, 0)';
+    }
+}
+
+// 캔버스 터치 이벤트 (조이스틱 외 영역 - 꾹 눌러서 이동용)
+canvas.addEventListener('touchstart', e => {
+    if (gameState === 'playing') {
+        // 조이스틱 영역이면 무시
+        const touch = e.touches[0];
+        const jzRect = joystickZone ? joystickZone.getBoundingClientRect() : null;
+        if (jzRect && touch.clientX >= jzRect.left && touch.clientX <= jzRect.right &&
+            touch.clientY >= jzRect.top && touch.clientY <= jzRect.bottom) {
+            return;
+        }
+        e.preventDefault();
+        mouse.pressed = true;
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        mouse.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    if (mouse.pressed) {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        mouse.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+        mouse.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    mouse.pressed = false;
+});
+
+// 전체화면 토글
+window.toggleFullscreen = function() {
+    const container = document.getElementById('game-container');
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        document.body.classList.add('is-fullscreen');
+        resizeCanvas();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        document.body.classList.remove('is-fullscreen');
+        resizeCanvas();
+    }
+};
+
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+        document.body.classList.remove('is-fullscreen');
+    }
+    setTimeout(resizeCanvas, 100);
+});
+
+document.addEventListener('webkitfullscreenchange', () => {
+    if (!document.webkitFullscreenElement) {
+        document.body.classList.remove('is-fullscreen');
+    }
+    setTimeout(resizeCanvas, 100);
+});
+
+// 모바일 기본 동작 방지 (게임 영역 스크롤 방지)
+document.getElementById('game-viewport').addEventListener('touchmove', e => {
+    e.preventDefault();
+}, { passive: false });
+
 // 플레이어 객체
 const player = {
     x: 0,
@@ -409,10 +589,56 @@ function update(dt) {
 
     // 플레이어 이동
     let dx = 0; let dy = 0;
+    
+    // 키보드 입력
     if (keys['KeyW'] || keys['ArrowUp']) { dy -= 1; player.dir = 3; }
     if (keys['KeyS'] || keys['ArrowDown']) { dy += 1; player.dir = 0; }
     if (keys['KeyA'] || keys['ArrowLeft']) { dx -= 1; player.dir = 1; }
     if (keys['KeyD'] || keys['ArrowRight']) { dx += 1; player.dir = 2; }
+    
+    // 마우스 꾹 누르기 입력 (키보드 입력이 없을 때)
+    if (dx === 0 && dy === 0 && mouse.pressed) {
+        // 마우스 위치를 월드 좌표로 변환
+        let worldMouseX = mouse.x + (player.x - canvas.width / 2);
+        let worldMouseY = mouse.y + (player.y - canvas.height / 2);
+        
+        dx = worldMouseX - player.x;
+        dy = worldMouseY - player.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        
+        // 플레이어 근처(15px 이내)면 이동 안함 (떨림 방지)
+        if (dist > 15) {
+            dx /= dist;
+            dy /= dist;
+            
+            // 방향 설정
+            if (Math.abs(dx) > Math.abs(dy)) {
+                player.dir = dx < 0 ? 1 : 2;
+            } else {
+                player.dir = dy < 0 ? 3 : 0;
+            }
+        } else {
+            dx = 0;
+            dy = 0;
+        }
+    }
+    
+    // 가상 조이스틱 입력 (키보드/마우스 입력이 없을 때)
+    if (dx === 0 && dy === 0 && joystick.active) {
+        let deadzone = 0.15;
+        if (Math.abs(joystick.dx) > deadzone || Math.abs(joystick.dy) > deadzone) {
+            dx = joystick.dx;
+            dy = joystick.dy;
+            
+            // 방향 설정
+            if (Math.abs(dx) > Math.abs(dy)) {
+                player.dir = dx < 0 ? 1 : 2;
+            } else {
+                player.dir = dy < 0 ? 3 : 0;
+            }
+        }
+    }
+    
     if (dx !== 0 && dy !== 0) {
         let length = Math.sqrt(dx*dx + dy*dy);
         dx /= length; dy /= length;

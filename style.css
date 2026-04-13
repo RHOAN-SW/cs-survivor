@@ -16,6 +16,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    overflow-x: hidden;
 }
 
 body {
@@ -23,9 +28,12 @@ body {
     color: var(--text-main);
     font-family: 'Fira Code', monospace;
     user-select: none;
+    -webkit-user-select: none;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
     overflow-y: auto;
+    touch-action: manipulation;
 
     /* 은은한 그리드 패턴 배경 */
     background-image:
@@ -41,6 +49,7 @@ body {
     align-items: center;
     padding: 30px 20px 60px;
     min-height: 100vh;
+    min-height: 100dvh;
 }
 
 #page-title {
@@ -104,6 +113,28 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* 전체화면 버튼 */
+#fullscreen-btn {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+#fullscreen-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* 게임 뷰포트 */
 #game-viewport {
     width: var(--game-width);
@@ -117,6 +148,63 @@ body {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+/* =============================
+   모바일 가상 조이스틱
+   ============================= */
+#joystick-zone {
+    display: none; /* PC에서는 숨김, 모바일에서만 표시 */
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 140px;
+    height: 140px;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+#joystick-base {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+#joystick-stick {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(56, 189, 248, 0.25) 100%);
+    border: 2px solid rgba(56, 189, 248, 0.5);
+    position: absolute;
+    transition: none;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+/* 모바일 일시정지 버튼 */
+#mobile-pause-btn {
+    display: none; /* PC에서는 숨김 */
+    position: absolute;
+    top: 54px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    font-size: 1.1rem;
+    z-index: 50;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
 }
 
 /* =============================
@@ -180,6 +268,8 @@ body {
     pointer-events: auto;
     backdrop-filter: blur(4px);
     z-index: 100;
+    overflow-y: auto;
+    padding: 10px;
 }
 
 .hidden {
@@ -228,7 +318,7 @@ body {
     padding: 10px 14px;
     color: var(--text-main);
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 16px; /* 16px prevents iOS auto-zoom */
     width: 200px;
     outline: none;
     transition: border-color 0.2s;
@@ -303,6 +393,13 @@ body {
     box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
 }
 
+.skill-btn:active {
+    transform: translateY(0);
+    border-color: var(--accent);
+    background: #0f172a;
+    box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+}
+
 .skill-info {
     text-align: left;
 }
@@ -342,6 +439,10 @@ body {
 .restart-btn:hover {
     background: #dc2626;
     transform: scale(1.05);
+}
+
+.restart-btn:active {
+    transform: scale(0.98);
 }
 
 /* =============================
@@ -395,6 +496,7 @@ body {
     padding: 0;
     max-height: 400px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 #leaderboard-table {
@@ -481,7 +583,7 @@ body {
 }
 
 /* =============================
-   반응형
+   반응형 — 태블릿
    ============================= */
 @media (max-width: 1000px) {
     :root {
@@ -490,17 +592,245 @@ body {
     }
 }
 
+/* =============================
+   반응형 — 모바일
+   ============================= */
 @media (max-width: 840px) {
     :root {
-        --game-width: 95vw;
-        --game-height: 63vw;
+        --game-width: 100vw;
+        --game-height: 65vw;
+    }
+
+    body {
+        overflow-y: auto;
+    }
+
+    #page-wrapper {
+        padding: 10px 0 40px;
     }
 
     #page-title {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
+        margin-bottom: 8px;
     }
 
-    #leaderboard-container {
-        width: 95vw;
+    #game-container {
+        border-radius: 0;
+        box-shadow: none;
     }
+
+    #window-titlebar {
+        height: 32px;
+        padding: 0 10px;
+    }
+
+    .window-dots .dot {
+        width: 9px;
+        height: 9px;
+    }
+
+    .window-title {
+        font-size: 0.7rem;
+    }
+
+    /* 조이스틱 & 일시정지 모바일에서 표시 */
+    #joystick-zone {
+        display: block;
+    }
+
+    #mobile-pause-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* HUD 축소 */
+    #top-hud {
+        padding: 6px 8px;
+    }
+
+    #exp-container {
+        height: 10px;
+    }
+
+    #stats-row {
+        font-size: 0.8rem;
+        margin-top: 4px;
+        padding: 0 4px;
+    }
+
+    /* 모달 축소 */
+    .panel {
+        padding: 18px 14px;
+        width: 95%;
+        border-radius: 10px;
+    }
+
+    .panel h2 {
+        font-size: 1.3rem;
+    }
+
+    .panel p {
+        font-size: 0.85rem;
+    }
+
+    .skill-btn {
+        padding: 10px 12px;
+    }
+
+    .skill-name {
+        font-size: 1rem;
+    }
+
+    .skill-desc {
+        font-size: 0.75rem;
+    }
+
+    .skill-level {
+        font-size: 1.2rem;
+    }
+
+    #skill-options {
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .restart-btn {
+        padding: 10px 20px;
+        font-size: 1rem;
+        margin-top: 14px;
+    }
+
+    .nickname-input-group {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #nickname-input {
+        width: 100%;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+    }
+
+    /* 리더보드 */
+    #leaderboard-container {
+        width: 100vw;
+        border-radius: 0;
+        margin-top: 0;
+        border-left: none;
+        border-right: none;
+    }
+
+    #leaderboard-header {
+        padding: 12px 14px;
+    }
+
+    #leaderboard-header h2 {
+        font-size: 1rem;
+    }
+
+    #leaderboard-table thead th {
+        padding: 8px 6px;
+        font-size: 0.7rem;
+        letter-spacing: 0;
+    }
+
+    #leaderboard-table tbody td {
+        padding: 10px 6px;
+        font-size: 0.8rem;
+    }
+}
+
+/* =============================
+   반응형 — 아주 작은 모바일
+   ============================= */
+@media (max-width: 400px) {
+    :root {
+        --game-height: 75vw;
+    }
+
+    #page-title {
+        font-size: 1.1rem;
+    }
+
+    #joystick-base {
+        width: 100px;
+        height: 100px;
+    }
+
+    #joystick-stick {
+        width: 38px;
+        height: 38px;
+    }
+
+    #joystick-zone {
+        bottom: 12px;
+        left: 12px;
+    }
+
+    .panel h2 {
+        font-size: 1.1rem;
+    }
+}
+
+/* =============================
+   가로 모드 (Landscape)
+   ============================= */
+@media (max-width: 840px) and (orientation: landscape) {
+    :root {
+        --game-width: 100vw;
+        --game-height: calc(100vh - 32px); /* titlebar 빼고 */
+        --game-height: calc(100dvh - 32px);
+    }
+
+    #page-wrapper {
+        padding: 0;
+    }
+
+    #page-title {
+        display: none;
+    }
+
+    #game-container {
+        border-radius: 0;
+    }
+
+    #window-titlebar {
+        height: 32px;
+    }
+
+    /* 가로모드에서 리더보드 스크롤 */
+    #leaderboard-container {
+        width: 100vw;
+    }
+}
+
+/* =============================
+   전체화면 모드
+   ============================= */
+body.is-fullscreen #page-wrapper {
+    padding: 0;
+}
+
+body.is-fullscreen #page-title {
+    display: none;
+}
+
+body.is-fullscreen #game-container {
+    width: 100vw;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+body.is-fullscreen #game-viewport {
+    width: 100vw;
+    height: calc(100vh - 38px);
+    height: calc(100dvh - 38px);
+}
+
+body.is-fullscreen #leaderboard-container {
+    display: none;
 }
