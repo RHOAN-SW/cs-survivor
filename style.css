@@ -35,7 +35,6 @@ body {
     overflow-y: auto;
     touch-action: manipulation;
 
-    /* 은은한 그리드 패턴 배경 */
     background-image:
         linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
@@ -113,7 +112,6 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* 전체화면 버튼 */
 #fullscreen-btn {
     background: transparent;
     border: 1px solid #475569;
@@ -142,6 +140,7 @@ body {
     position: relative;
     overflow: hidden;
     background: var(--bg-color);
+    touch-action: none;
 }
 
 #game-viewport canvas {
@@ -151,30 +150,21 @@ body {
 }
 
 /* =============================
-   모바일 가상 조이스틱
+   동적 조이스틱 (터치 위치에 생성)
    ============================= */
-#joystick-zone {
-    display: none; /* PC에서는 숨김, 모바일에서만 표시 */
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    width: 140px;
-    height: 140px;
-    z-index: 50;
-    pointer-events: auto;
-}
-
 #joystick-base {
+    display: none; /* 기본 숨김, JS에서 표시 */
     width: 120px;
     height: 120px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.06);
     border: 2px solid rgba(255, 255, 255, 0.15);
-    position: relative;
-    display: flex;
+    position: absolute;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(4px);
+    z-index: 50;
+    pointer-events: none;
 }
 
 #joystick-stick {
@@ -184,13 +174,16 @@ body {
     background: radial-gradient(circle, rgba(56, 189, 248, 0.6) 0%, rgba(56, 189, 248, 0.25) 100%);
     border: 2px solid rgba(56, 189, 248, 0.5);
     position: absolute;
-    transition: none;
+    top: 50%;
+    left: 50%;
+    margin-top: -23px;
+    margin-left: -23px;
     box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
 }
 
 /* 모바일 일시정지 버튼 */
 #mobile-pause-btn {
-    display: none; /* PC에서는 숨김 */
+    display: none;
     position: absolute;
     top: 54px;
     right: 10px;
@@ -294,12 +287,10 @@ body {
     text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
 }
 
-/* 게임오버 패널 확장 */
 .gameover-panel {
     max-width: 480px;
 }
 
-/* 닉네임 입력 영역 */
 #score-submit-area {
     margin: 20px 0 5px;
 }
@@ -318,7 +309,7 @@ body {
     padding: 10px 14px;
     color: var(--text-main);
     font-family: inherit;
-    font-size: 16px; /* 16px prevents iOS auto-zoom */
+    font-size: 16px;
     width: 200px;
     outline: none;
     transition: border-color 0.2s;
@@ -364,7 +355,6 @@ body {
 .submit-status.success { color: #4ade80; }
 .submit-status.error   { color: #f87171; }
 
-/* 스킬 선택 */
 #skill-options {
     display: flex;
     flex-direction: column;
@@ -397,12 +387,9 @@ body {
     transform: translateY(0);
     border-color: var(--accent);
     background: #0f172a;
-    box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
 }
 
-.skill-info {
-    text-align: left;
-}
+.skill-info { text-align: left; }
 
 .skill-name {
     font-size: 1.2rem;
@@ -532,7 +519,6 @@ body {
     font-size: 0.95rem;
 }
 
-/* 순위별 특별 색상 */
 #leaderboard-table tbody tr.rank-1 td:first-child {
     color: #fbbf24;
     text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
@@ -568,19 +554,9 @@ body {
     font-size: 0.95rem;
 }
 
-/* 스크롤바 커스텀 */
-#leaderboard-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-#leaderboard-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#leaderboard-body::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 3px;
-}
+#leaderboard-body::-webkit-scrollbar { width: 6px; }
+#leaderboard-body::-webkit-scrollbar-track { background: transparent; }
+#leaderboard-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
 /* =============================
    반응형 — 태블릿
@@ -593,12 +569,12 @@ body {
 }
 
 /* =============================
-   반응형 — 모바일
+   반응형 — 모바일 세로
    ============================= */
 @media (max-width: 840px) {
     :root {
         --game-width: 100vw;
-        --game-height: 65vw;
+        --game-height: calc(100dvh - 42px);  /* 타이틀바 빼고 화면 꽉 채움 */
     }
 
     body {
@@ -606,12 +582,12 @@ body {
     }
 
     #page-wrapper {
-        padding: 10px 0 40px;
+        padding: 0 0 0 0; /* 모바일에서 여백 제거 */
+        gap: 0;
     }
 
     #page-title {
-        font-size: 1.3rem;
-        margin-bottom: 8px;
+        display: none; /* 모바일에서 제목 숨김 — 화면 최대 활용 */
     }
 
     #game-container {
@@ -633,11 +609,7 @@ body {
         font-size: 0.7rem;
     }
 
-    /* 조이스틱 & 일시정지 모바일에서 표시 */
-    #joystick-zone {
-        display: block;
-    }
-
+    /* 일시정지 버튼 모바일에서 표시 */
     #mobile-pause-btn {
         display: flex;
         align-items: center;
@@ -654,51 +626,47 @@ body {
     }
 
     #stats-row {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         margin-top: 4px;
         padding: 0 4px;
     }
 
     /* 모달 축소 */
+    .modal-container {
+        padding: 8px;
+    }
+
     .panel {
-        padding: 18px 14px;
+        padding: 16px 12px;
         width: 95%;
         border-radius: 10px;
     }
 
     .panel h2 {
-        font-size: 1.3rem;
-    }
-
-    .panel p {
-        font-size: 0.85rem;
-    }
-
-    .skill-btn {
-        padding: 10px 12px;
-    }
-
-    .skill-name {
-        font-size: 1rem;
-    }
-
-    .skill-desc {
-        font-size: 0.75rem;
-    }
-
-    .skill-level {
         font-size: 1.2rem;
     }
 
+    .panel p {
+        font-size: 0.8rem;
+    }
+
+    .skill-btn {
+        padding: 10px;
+    }
+
+    .skill-name { font-size: 0.95rem; }
+    .skill-desc { font-size: 0.7rem; }
+    .skill-level { font-size: 1.1rem; }
+
     #skill-options {
-        gap: 10px;
-        margin-top: 12px;
+        gap: 8px;
+        margin-top: 10px;
     }
 
     .restart-btn {
-        padding: 10px 20px;
-        font-size: 1rem;
-        margin-top: 14px;
+        padding: 10px 18px;
+        font-size: 0.95rem;
+        margin-top: 12px;
     }
 
     .nickname-input-group {
@@ -706,16 +674,10 @@ body {
         gap: 8px;
     }
 
-    #nickname-input {
-        width: 100%;
-    }
+    #nickname-input { width: 100%; }
+    .submit-btn { width: 100%; padding: 12px; }
 
-    .submit-btn {
-        width: 100%;
-        padding: 12px;
-    }
-
-    /* 리더보드 */
+    /* 리더보드를 맨 밑에 */
     #leaderboard-container {
         width: 100vw;
         border-radius: 0;
@@ -733,14 +695,14 @@ body {
     }
 
     #leaderboard-table thead th {
-        padding: 8px 6px;
-        font-size: 0.7rem;
+        padding: 8px 4px;
+        font-size: 0.65rem;
         letter-spacing: 0;
     }
 
     #leaderboard-table tbody td {
-        padding: 10px 6px;
-        font-size: 0.8rem;
+        padding: 8px 4px;
+        font-size: 0.75rem;
     }
 }
 
@@ -748,14 +710,6 @@ body {
    반응형 — 아주 작은 모바일
    ============================= */
 @media (max-width: 400px) {
-    :root {
-        --game-height: 75vw;
-    }
-
-    #page-title {
-        font-size: 1.1rem;
-    }
-
     #joystick-base {
         width: 100px;
         height: 100px;
@@ -764,16 +718,11 @@ body {
     #joystick-stick {
         width: 38px;
         height: 38px;
+        margin-top: -19px;
+        margin-left: -19px;
     }
 
-    #joystick-zone {
-        bottom: 12px;
-        left: 12px;
-    }
-
-    .panel h2 {
-        font-size: 1.1rem;
-    }
+    .panel h2 { font-size: 1rem; }
 }
 
 /* =============================
@@ -782,29 +731,11 @@ body {
 @media (max-width: 840px) and (orientation: landscape) {
     :root {
         --game-width: 100vw;
-        --game-height: calc(100vh - 32px); /* titlebar 빼고 */
         --game-height: calc(100dvh - 32px);
-    }
-
-    #page-wrapper {
-        padding: 0;
-    }
-
-    #page-title {
-        display: none;
-    }
-
-    #game-container {
-        border-radius: 0;
     }
 
     #window-titlebar {
         height: 32px;
-    }
-
-    /* 가로모드에서 리더보드 스크롤 */
-    #leaderboard-container {
-        width: 100vw;
     }
 }
 

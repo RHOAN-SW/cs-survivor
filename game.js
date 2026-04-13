@@ -2,11 +2,18 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// 게임 뷰포트 컨테이너에 맞춤 (창모드 크기)
+// 모바일 감지
+const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+    || ('ontouchstart' in window && window.innerWidth < 840);
+
+// 모바일에서는 캔버스를 더 크게 만들어 화면을 넓게 보여줌 (배율 낮춤)
+const MOBILE_SCALE = 1.5; // 모바일에서 1.5배 넓게
+
 function resizeCanvas() {
     const viewport = document.getElementById('game-viewport');
-    canvas.width = viewport.clientWidth;
-    canvas.height = viewport.clientHeight;
+    const scale = isMobile ? MOBILE_SCALE : 1;
+    canvas.width = viewport.clientWidth * scale;
+    canvas.height = viewport.clientHeight * scale;
 }
 resizeCanvas();
 
@@ -255,57 +262,35 @@ window.addEventListener('mouseup', e => {
     if (e.button === 0) mouse.pressed = false;
 });
 
-// 터치: 가상 조이스틱 시스템
+// 터치: 동적 조이스틱 시스템 (터치한 곳에 생김)
 const joystick = {
     active: false,
     startX: 0,
     startY: 0,
-    dx: 0,     // -1 ~ 1 정규화된 방향
+    dx: 0,
     dy: 0,
     touchId: null
 };
 
-const joystickZone = document.getElementById('joystick-zone');
 const joystickBase = document.getElementById('joystick-base');
 const joystickStick = document.getElementById('joystick-stick');
-const JOYSTICK_MAX = 40; // 최대 이동 반경
+const JOYSTICK_MAX = 45;
 
-if (joystickZone) {
-    joystickZone.addEventListener('touchstart', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (joystick.active) return;
-        const touch = e.changedTouches[0];
-        joystick.active = true;
-        joystick.touchId = touch.identifier;
-        const rect = joystickBase.getBoundingClientRect();
-        joystick.startX = rect.left + rect.width / 2;
-        joystick.startY = rect.top + rect.height / 2;
-        updateJoystick(touch.clientX, touch.clientY);
-    }, { passive: false });
+function showJoystickAt(x, y) {
+    if (joystickBase) {
+        joystickBase.style.display = 'flex';
+        joystickBase.style.left = (x - 60) + 'px';
+        joystickBase.style.top = (y - 60) + 'px';
+    }
+    if (joystickStick) {
+        joystickStick.style.transform = 'translate(0, 0)';
+    }
+}
 
-    joystickZone.addEventListener('touchmove', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            if (touch.identifier === joystick.touchId) {
-                updateJoystick(touch.clientX, touch.clientY);
-            }
-        }
-    }, { passive: false });
-
-    joystickZone.addEventListener('touchend', e => {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === joystick.touchId) {
-                resetJoystick();
-            }
-        }
-    });
-
-    joystickZone.addEventListener('touchcancel', e => {
-        resetJoystick();
-    });
+function hideJoystick() {
+    if (joystickBase) {
+        joystickBase.style.display = 'none';
+    }
 }
 
 function updateJoystick(clientX, clientY) {
@@ -316,14 +301,11 @@ function updateJoystick(clientX, clientY) {
     if (dist > JOYSTICK_MAX) {
         dx = (dx / dist) * JOYSTICK_MAX;
         dy = (dy / dist) * JOYSTICK_MAX;
-        dist = JOYSTICK_MAX;
     }
 
-    // 정규화 (-1 ~ 1)
     joystick.dx = dx / JOYSTICK_MAX;
     joystick.dy = dy / JOYSTICK_MAX;
 
-    // 스틱 위치 업데이트
     if (joystickStick) {
         joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
     }
@@ -334,40 +316,63 @@ function resetJoystick() {
     joystick.touchId = null;
     joystick.dx = 0;
     joystick.dy = 0;
-    if (joystickStick) {
-        joystickStick.style.transform = 'translate(0, 0)';
-    }
+    hideJoystick();
 }
 
-// 캔버스 터치 이벤트 (조이스틱 외 영역 - 꾹 눌러서 이동용)
-canvas.addEventListener('touchstart', e => {
-    if (gameState === 'playing') {
-        // 조이스틱 영역이면 무시
-        const touch = e.touches[0];
-        const jzRect = joystickZone ? joystickZone.getBoundingClientRect() : null;
-        if (jzRect && touch.clientX >= jzRect.left && touch.clientX <= jzRect.right &&
-            touch.clientY >= jzRect.top && touch.clientY <= jzRect.bottom) {
-            return;
-        }
-        e.preventDefault();
+// 게임 뷰포트에서 터치 이벤트 처리
+const gameViewport = document.getElementById('game-viewport');
+
+gameViewport.addEventListener('touchstart', e => {
+    if (gameState !== 'playing') return;
+    e.preventDefault();
+
+    const touch = e.changedTouches[0];
+    const rect = gameViewport.getBoundingClientRect();
+    const relX = touch.clientX - rect.left;
+    const relY = touch.clientY - rect.top;
+
+    if (!joystick.active) {
+        // 첫 터치: 조이스틱 생성
+        joystick.active = true;
+        joystick.touchId = touch.identifier;
+        joystick.startX = touch.clientX;
+        joystick.startY = touch.clientY;
+        showJoystickAt(relX, relY);
+    } else {
+        // 두 번째 터치: 꾹 눌러서 이동 (마우스 대체)
         mouse.pressed = true;
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
-        mouse.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        mouse.x = relX * (canvas.width / rect.width);
+        mouse.y = relY * (canvas.height / rect.height);
     }
 }, { passive: false });
 
-canvas.addEventListener('touchmove', e => {
-    if (mouse.pressed) {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const touch = e.touches[0];
-        mouse.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
-        mouse.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+gameViewport.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === joystick.touchId) {
+            updateJoystick(touch.clientX, touch.clientY);
+        } else if (mouse.pressed) {
+            const rect = gameViewport.getBoundingClientRect();
+            mouse.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            mouse.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        }
     }
 }, { passive: false });
 
-canvas.addEventListener('touchend', e => {
+gameViewport.addEventListener('touchend', e => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === joystick.touchId) {
+            resetJoystick();
+        } else {
+            mouse.pressed = false;
+        }
+    }
+});
+
+gameViewport.addEventListener('touchcancel', e => {
+    resetJoystick();
     mouse.pressed = false;
 });
 
@@ -379,12 +384,12 @@ window.toggleFullscreen = function() {
         if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
         document.body.classList.add('is-fullscreen');
-        resizeCanvas();
+        setTimeout(resizeCanvas, 100);
     } else {
         if (document.exitFullscreen) document.exitFullscreen();
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
         document.body.classList.remove('is-fullscreen');
-        resizeCanvas();
+        setTimeout(resizeCanvas, 100);
     }
 };
 
@@ -401,11 +406,6 @@ document.addEventListener('webkitfullscreenchange', () => {
     }
     setTimeout(resizeCanvas, 100);
 });
-
-// 모바일 기본 동작 방지 (게임 영역 스크롤 방지)
-document.getElementById('game-viewport').addEventListener('touchmove', e => {
-    e.preventDefault();
-}, { passive: false });
 
 // 플레이어 객체
 const player = {
