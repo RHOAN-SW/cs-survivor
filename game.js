@@ -244,6 +244,31 @@ const mon1Img = new Image(); mon1Img.src = 'mon1.png';
 const mon2Img = new Image(); mon2Img.src = 'mon2.png';
 const mon3Img = new Image(); mon3Img.src = 'mon3.png';
 const mon4Img = new Image(); mon4Img.src = 'mon4.png';
+const bossImg = new Image(); bossImg.src = 'boss_1.png';
+
+const ITEM_ICON_IMAGES = {
+    energy_drink: new Image(),
+    bomb: new Image(),
+    magnet: new Image()
+};
+ITEM_ICON_IMAGES.energy_drink.src = 'energy.png';
+ITEM_ICON_IMAGES.bomb.src = 'bomb.png';
+ITEM_ICON_IMAGES.magnet.src = 'magnet.png';
+
+const SKILL_ICON_IMAGES = {
+    print: new Image(),
+    memory_leak: new Image(),
+    round_robin: new Image(),
+    git_push: new Image()
+};
+SKILL_ICON_IMAGES.print.src = 'sk_print.png';
+SKILL_ICON_IMAGES.memory_leak.src = 'sk_code.png';
+SKILL_ICON_IMAGES.round_robin.src = 'sk_round.png';
+SKILL_ICON_IMAGES.git_push.src = 'sk_commit.png';
+
+function getSkillIconUrl(skillId) {
+    return SKILL_ICON_IMAGES[skillId]?.src || '';
+}
 
 let gameState = 'playing'; // playing, levelup, gameover, paused
 let gameTime = 0;
@@ -457,7 +482,8 @@ const player = {
     skills: {}, // { 'skill_id': level }
     dir: 0,     // 0:하, 1:좌, 2:우, 3:상
     frame: 1,   // 0~2
-    frameTimer: 0
+    frameTimer: 0,
+    magnetTimer: 0
 };
 
 // 엔티티 관리
@@ -472,12 +498,23 @@ let weaponsState = {
     gitpushTimer: 0,
     memoryleakTimer: 0
 };
+let rareItemTimer = 10 + Math.random() * 15;
+
+function spawnRareMapItem() {
+    const types = ['energy_drink', 'bomb', 'magnet'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const margin = 50;
+    const x = player.x - canvas.width / 2 + margin + Math.random() * (canvas.width - margin * 2);
+    const y = player.y - canvas.height / 2 + margin + Math.random() * (canvas.height - margin * 2);
+    expGems.push({ x, y, type });
+    rareItemTimer = 10 + Math.random() * 15;
+}
 
 // === 보스 시스템 ===
 let boss = null;           // 현재 보스 (null이면 없음)
 let bossWarning = null;    // 경고 연출 상태
 let bossSpawned = false;   // 보스가 이미 소환되었는지
-const BOSS_SPAWN_TIME = 120; // 2분
+const BOSS_SPAWN_TIME = 120; // 10초
 
 // 스킬 DB
 const SKILL_DB = {
@@ -524,10 +561,9 @@ const SKILL_DB = {
 };
 
 const ENEMY_TYPES = [
-    { name: 'NullPntr', hp: 10, speed: 120, exp: 1, color: '#fca5a5', radius: 15, img: mon1Img },
-    { name: 'SegFault', hp: 25, speed: 90, exp: 2, color: '#c084fc', radius: 20, img: mon2Img },
-    { name: '404', hp: 40, speed: 70, exp: 3, color: '#fb923c', radius: 25, img: mon3Img },
-    { name: 'Deadlock', hp: 150, speed: 40, exp: 10, color: '#f87171', radius: 35, img: mon4Img }
+    { name: 'NullPntr', hp: 10, speed: 120, exp: 1, color: '#fca5a5', radius: 25, img: mon1Img },
+    { name: 'SegFault', hp: 25, speed: 90, exp: 2, color: '#c084fc', radius: 30, img: mon2Img },
+    { name: '404', hp: 40, speed: 70, exp: 3, color: '#fb923c', radius: 45, img: mon3Img }
 ];
 
 // 초기 스킬 제공
@@ -593,8 +629,11 @@ function triggerLevelUp() {
         let cur = player.skills[c.id] || 0;
         let isEvo = c.type === 'evolution';
 
+        const iconUrl = getSkillIconUrl(c.id);
         btn.innerHTML = `
-            <div class="skill-icon"></div>
+            <div class="skill-icon">
+                ${c.id === 'heal' ? '<span style="font-size: 1.4rem; color: #f8fafc;">+</span>' : iconUrl ? `<img src="${iconUrl}" alt="${c.name}" />` : '<span style="font-size: 1.4rem; color: #94a3b8;">?</span>'}
+            </div>
             <div class="skill-info">
                 <div class="skill-name" style="color: ${isEvo ? '#f472b6' : 'var(--accent)'}">${c.name}</div>
                 <div class="skill-desc">${c.desc}</div>
@@ -626,6 +665,7 @@ function triggerLevelUp() {
 function update(dt) {
     gameTime += dt;
     frameCount++;
+    player.magnetTimer = Math.max(0, player.magnetTimer - dt);
 
     // 패시브 적용
     let speedMult = 1 + (player.skills['caffeine'] ? player.skills['caffeine'] * 0.15 : 0);
@@ -753,7 +793,7 @@ function update(dt) {
     let isRREvo = player.skills['context_switch'] > 0;
 
     if (rrLvl > 0 || isRREvo) {
-        let count = isRREvo ? 5 : (rrLvl >= 4 ? 3 : (rrLvl >= 2 ? 2 : 1));
+        let count = isRREvo ? 5 : (1 + rrLvl);
         let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
         let radius = 80 + (rrLvl * 10);
         let damage = isRREvo ? 40 : 15 + (rrLvl * 5);
@@ -805,7 +845,7 @@ function update(dt) {
         weaponsState.stackTimer -= dt;
         if (weaponsState.stackTimer <= 0) {
             weaponsState.stackTimer = 3.0 * coolMult;
-            let radius = 100 + (soLvl * 30);
+            let radius = 100 + (soLvl * 40);
             let damage = 30 + (soLvl * 20);
 
             // 시각 효과 발동용 
@@ -1010,8 +1050,9 @@ function update(dt) {
             p.y += p.vy * dt;
             if (p.rotation !== undefined) p.rotation += 3 * dt;
 
+            const hitRadius = p.radius || 18;
             let distToPlayer = getDistance(p.x, p.y, player.x, player.y);
-            if (distToPlayer < 18) {
+            if (distToPlayer < hitRadius) {
                 player.hp -= p.damage;
                 spawnFloatingText(player.x, player.y - 20, p.damage.toString(), '#ef4444');
                 p.life = 0;
@@ -1052,6 +1093,16 @@ function update(dt) {
         });
     }
 
+    rareItemTimer -= dt;
+    if (rareItemTimer <= 0) {
+        let existingRare = expGems.some(g => g.type === 'energy_drink' || g.type === 'bomb' || g.type === 'magnet');
+        if (!existingRare) {
+            spawnRareMapItem();
+        } else {
+            rareItemTimer = 5;
+        }
+    }
+
     // === 보스 스폰 (2분 경과 시) ===
     if (!bossSpawned && gameTime >= BOSS_SPAWN_TIME && !bossWarning) {
         // 경고 연출 시작
@@ -1074,6 +1125,7 @@ function update(dt) {
                 speed: 50,
                 radius: 50,
                 name: 'Prof. C',
+                dir: 1,
                 attackTimer: 0,
                 attackCooldown: 2.0,   // 2초마다 C 살포
                 burstCount: 12,        // 한 번에 12 방향
@@ -1102,6 +1154,7 @@ function update(dt) {
             let by = player.y - boss.y;
             let bDist = Math.sqrt(bx * bx + by * by);
             if (bDist > 0) {
+                boss.dir = bx > 0 ? 2 : 1;
                 boss.x += (bx / bDist) * boss.speed * dt;
                 boss.y += (by / bDist) * boss.speed * dt;
             }
@@ -1123,7 +1176,8 @@ function update(dt) {
                         vy: Math.sin(a) * 180,
                         life: 3.0,
                         type: 'boss_c',
-                        damage: 15,
+                        damage: 10,
+                        radius: 22,
                         rotation: Math.random() * Math.PI * 2
                     });
                 }
@@ -1158,10 +1212,6 @@ function update(dt) {
             let rnd = Math.random();
             if (rnd < 0.005) { // 0.5% 확률 족보
                 expGems.push({ x: en.x, y: en.y, type: 'cheat_sheet' });
-            } else if (rnd < 0.025) { // 2% 확률 폭탄
-                expGems.push({ x: en.x, y: en.y, type: 'bomb' });
-            } else if (rnd < 0.07) { // 4.5% 확률 에너지 드링크
-                expGems.push({ x: en.x, y: en.y, type: 'energy_drink' });
             } else {
                 expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
             }
@@ -1171,16 +1221,32 @@ function update(dt) {
 
         let ex = player.x - en.x;
         let ey = player.y - en.y;
-        let dist = Math.sqrt(ex * ex + ey * ey);
+        let dist = Math.hypot(ex, ey);
+        let minOverlap = en.radius + 18;
+        let hitReach = en.radius + 24;
 
         if (dist > 0) {
             en.x += (ex / dist) * en.speed * dt;
             en.y += (ey / dist) * en.speed * dt;
+
+            let newDist = getDistance(player.x, player.y, en.x, en.y);
+            if (newDist === 0) {
+                let angle = Math.random() * Math.PI * 2;
+                en.x = player.x + Math.cos(angle) * minOverlap;
+                en.y = player.y + Math.sin(angle) * minOverlap;
+            } else if (newDist < minOverlap) {
+                let ux = (en.x - player.x) / newDist;
+                let uy = (en.y - player.y) / newDist;
+                en.x = player.x + ux * minOverlap;
+                en.y = player.y + uy * minOverlap;
+            }
         }
 
+        let currentDist = getDistance(player.x, player.y, en.x, en.y);
+
         // 플레이어와 충돌 (피격)
-        if (dist < en.radius + 10) {
-            player.hp -= 10 * dt;
+        if (currentDist < hitReach) {
+            player.hp -= 1 * dt;
             if (player.hp <= 0) {
                 gameState = 'gameover';
                 document.getElementById('final-time').innerText = getFormattedTime(gameTime);
@@ -1205,8 +1271,48 @@ function update(dt) {
         let g = expGems[i];
         let dist = getDistance(player.x, player.y, g.x, g.y);
 
-        // 자석 기믹 (가까가면 빨려옴)
-        if (dist < 100) {
+        // 자석 기믹 (가까가면 천천히 빨려오고, 점점 빨라짐)
+        if (g.type === 'exp') {
+            g.vx = g.vx || 0;
+            g.vy = g.vy || 0;
+            g.pullDelay = g.pullDelay ?? (0.35 + Math.random() * 0.35);
+            let magnetActive = player.magnetTimer > 0;
+            let strength = 0;
+            let shouldAttract = magnetActive || dist < 120;
+
+            if (shouldAttract && dist > 0) {
+                if (magnetActive) {
+                    let maxRange = Math.max(canvas.width, canvas.height) * 1.6;
+                    strength = Math.min(1, Math.max(0, 1 - dist / maxRange));
+                } else {
+                    strength = (120 - dist) / 120;
+                }
+
+                let basePower = magnetActive ? 420 : 1200;
+                let pullPower = basePower + (magnetActive ? 1100 * strength : 0);
+
+                if (g.pullDelay > 0) {
+                    g.pullDelay -= dt * 1.0;
+                    pullPower *= magnetActive ? 0.12 : 0.08;
+                } else if (magnetActive) {
+                    pullPower *= 0.6 + strength * 0.4;
+                }
+
+                if (dist < 50) {
+                    let closeBoost = (50 - dist) / 50;
+                    pullPower += 1400 * closeBoost;
+                }
+
+                g.vx += (player.x - g.x) / dist * pullPower * dt;
+                g.vy += (player.y - g.y) / dist * pullPower * dt;
+            }
+
+            let damp = magnetActive ? 0.93 : 0.88 + Math.min(0.08, strength);
+            g.vx *= damp;
+            g.vy *= damp;
+            g.x += g.vx * dt;
+            g.y += g.vy * dt;
+        } else if (dist < 100 && dist > 0) {
             g.x += (player.x - g.x) / dist * 400 * dt;
             g.y += (player.y - g.y) / dist * 400 * dt;
         }
@@ -1239,6 +1345,10 @@ function update(dt) {
                 enemies.length = 0; // 모든 적 제거
 
                 spawnFloatingText(player.x, player.y - 60, killCount + " KILL!", '#ef4444');
+            } else if (g.type === 'magnet') {
+                player.magnetTimer = 12;
+                spawnFloatingText(player.x, player.y - 40, "MAGNET ACTIVE", '#38bdf8');
+                spawnFloatingText(player.x, player.y - 30, "EXP MAP PULL!", '#60a5fa');
             } else {
                 addExp(g.val || 1);
             }
@@ -1307,13 +1417,34 @@ function draw() {
 
     // 드랍 아이템 그리기
     expGems.forEach(g => {
+        if (g.type === 'exp') {
+            let dist = getDistance(player.x, player.y, g.x, g.y);
+            if (dist < 140) {
+                let alpha = Math.min(0.24, (140 - dist) / 140 * 0.24);
+                ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+                ctx.lineWidth = 1 + Math.min(2, (140 - dist) / 50);
+                ctx.beginPath();
+                ctx.moveTo(g.x, g.y);
+                let midX = (g.x + player.x) / 2;
+                let midY = (g.y + player.y) / 2 - 12;
+                ctx.quadraticCurveTo(midX, midY, player.x, player.y);
+                ctx.stroke();
+            }
+        }
+
         if (g.type === 'energy_drink') {
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(g.x - 6, g.y - 10, 12, 16);
-            ctx.fillStyle = '#fde047';
-            ctx.font = '10px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("⚡", g.x, g.y + 2);
+            const img = ITEM_ICON_IMAGES.energy_drink;
+            const size = 40;
+            if (img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, g.x - size / 2, g.y - size / 2, size, size);
+            } else {
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(g.x - 10, g.y - 10, 20, 20);
+                ctx.fillStyle = '#fde047';
+                ctx.font = '10px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("⚡", g.x, g.y + 2);
+            }
         } else if (g.type === 'cheat_sheet') {
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(g.x - 8, g.y - 12, 16, 20);
@@ -1322,51 +1453,83 @@ function draw() {
             ctx.textAlign = 'center';
             ctx.fillText("A+", g.x, g.y + 4);
         } else if (g.type === 'bomb') {
-            // 폭탄 아이템 그리기 (빨간 원 + 💣)
-            let pulse = 1 + Math.sin(gameTime * 6) * 0.15;
-            ctx.save();
-            ctx.translate(g.x, g.y);
-            ctx.scale(pulse, pulse);
+            const img = ITEM_ICON_IMAGES.bomb;
+            const size = 40;
+            if (img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, g.x - size / 2, g.y - size / 2, size, size);
+            } else {
+                // 폭탄 아이템 그리기 (빨간 원 + 💣)
+                let pulse = 1 + Math.sin(gameTime * 6) * 0.15;
+                ctx.save();
+                ctx.translate(g.x, g.y);
+                ctx.scale(pulse, pulse);
 
-            // 외곽 글로우
-            ctx.beginPath();
-            ctx.arc(0, 0, 14, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-            ctx.fill();
+                // 외곽 글로우
+                ctx.beginPath();
+                ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+                ctx.fill();
 
-            // 본체
-            ctx.beginPath();
-            ctx.arc(0, 0, 10, 0, Math.PI * 2);
-            ctx.fillStyle = '#1a1a2e';
-            ctx.fill();
-            ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+                // 본체
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fill();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
-            // 심지
-            ctx.beginPath();
-            ctx.moveTo(4, -8);
-            ctx.lineTo(8, -14);
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+                // 심지
+                ctx.beginPath();
+                ctx.moveTo(4, -8);
+                ctx.lineTo(8, -14);
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
-            // 불꽃
-            let sparkAlpha = 0.5 + Math.sin(gameTime * 15) * 0.5;
-            ctx.beginPath();
-            ctx.arc(8, -14, 3, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(251, 191, 36, ${sparkAlpha})`;
-            ctx.fill();
+                // 불꽃
+                let sparkAlpha = 0.5 + Math.sin(gameTime * 15) * 0.5;
+                ctx.beginPath();
+                ctx.arc(8, -14, 3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(251, 191, 36, ${sparkAlpha})`;
+                ctx.fill();
 
-            ctx.restore();
+                ctx.restore();
+            }
+        } else if (g.type === 'magnet') {
+            const img = ITEM_ICON_IMAGES.magnet;
+            const size = 40;
+            if (img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, g.x - size / 2, g.y - size / 2, size, size);
+            } else {
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(g.x, g.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '18px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🧲', g.x, g.y);
+            }
         } else {
-            ctx.fillStyle = '#10b981';
+            let value = g.val || 1;
+            let size = 6 + value;
+            let color = '#10b981';
+            if (value >= 5) {
+                color = '#fb7185';
+            } else if (value >= 3) {
+                color = '#38bdf8';
+            }
+            ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(g.x, g.y, 6 + (g.val || 1), 0, Math.PI * 2);
+            ctx.arc(g.x, g.y, size, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#a7f3d0';
-            ctx.font = '10px Fira Code';
-            ctx.fillText(";", g.x - 3, g.y + 3);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `${10 + Math.min(6, value * 2)}px Fira Code`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(";", g.x, g.y);
         }
     });
 
@@ -1435,21 +1598,12 @@ function draw() {
             }
             ctx.drawImage(en.img, -destW / 2, -destH / 2, destW, destH);
             ctx.restore();
-
-            ctx.fillStyle = '#0f172a';
-            ctx.font = 'bold 12px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText(en.name, en.x, en.y + en.radius + 8);
         } else {
             ctx.fillStyle = en.color;
             ctx.beginPath();
             ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = '#0f172a';
-            ctx.font = 'bold 12px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText(en.name, en.x, en.y + 4);
         }
 
         // HP 막대
@@ -1467,65 +1621,77 @@ function draw() {
         ctx.save();
         ctx.translate(boss.x, boss.y + bobY);
 
-        // 보스 몸체 (교수님)
-        // 가운
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(-30, -15, 60, 50);
+        if (bossImg.complete && bossImg.naturalWidth !== 0) {
+            let bossSize = Math.min(120, boss.radius * 2.5);
+            try {
+                if (boss.dir === 2) {
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(bossImg, bossSize / 2, -bossSize / 2, bossSize, bossSize);
+                } else {
+                    ctx.drawImage(bossImg, -bossSize / 2, -bossSize / 2, bossSize, bossSize);
+                }
+            } catch (err) {
+                console.warn('Boss image draw failed, fallback to manual boss:', err);
+                drawManualBoss();
+            }
+        } else {
+            drawManualBoss();
+        }
 
-        // 머리
-        ctx.fillStyle = '#fde68a';
-        ctx.beginPath();
-        ctx.arc(0, -25, 22, 0, Math.PI * 2);
-        ctx.fill();
+        function drawManualBoss() {
+            // 보스 몸체 (교수님)
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-30, -15, 60, 50);
 
-        // 안경
-        ctx.strokeStyle = '#374151';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(-9, -27, 7, 0, Math.PI * 2);
-        ctx.arc(9, -27, 7, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(-2, -27);
-        ctx.lineTo(2, -27);
-        ctx.stroke();
+            // 머리
+            ctx.fillStyle = '#fde68a';
+            ctx.beginPath();
+            ctx.arc(0, -25, 22, 0, Math.PI * 2);
+            ctx.fill();
 
-        // 눈 (빨간색 — 화남)
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(-9, -27, 3, 0, Math.PI * 2);
-        ctx.arc(9, -27, 3, 0, Math.PI * 2);
-        ctx.fill();
+            // 안경
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-9, -27, 7, 0, Math.PI * 2);
+            ctx.arc(9, -27, 7, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-2, -27);
+            ctx.lineTo(2, -27);
+            ctx.stroke();
 
-        // 입 (미소? 웃음?)
-        ctx.strokeStyle = '#374151';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, -18, 8, 0.2, Math.PI - 0.2);
-        ctx.stroke();
+            // 눈 (빨간색 — 화남)
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-9, -27, 3, 0, Math.PI * 2);
+            ctx.arc(9, -27, 3, 0, Math.PI * 2);
+            ctx.fill();
 
-        // 넥타이
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.moveTo(0, -15);
-        ctx.lineTo(-6, 5);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(6, 5);
-        ctx.fill();
+            // 입 (미소? 웃음?)
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, -18, 8, 0.2, Math.PI - 0.2);
+            ctx.stroke();
 
-        // "C" 표시 (가운에)
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'bold 24px Fira Code';
-        ctx.textAlign = 'center';
-        ctx.fillText('C', 0, 28);
+            // 넥타이
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(0, -15);
+            ctx.lineTo(-6, 5);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(6, 5);
+            ctx.fill();
+
+            // "C" 표시 (가운에)
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 24px Fira Code';
+            ctx.textAlign = 'center';
+            ctx.fillText('C', 0, 28);
+        }
 
         ctx.restore();
-
-        // 이름 표시
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 14px Fira Code';
-        ctx.textAlign = 'center';
-        ctx.fillText(boss.name, boss.x, boss.y + boss.radius + 15);
 
         // 보스 HP 바 (화면 상단 고정은 draw 밖에서, 여기는 월드 좌표)
         let bHpRatio = boss.hp / boss.maxHp;
@@ -1543,15 +1709,16 @@ function draw() {
             ctx.translate(p.x, p.y);
             ctx.rotate(gameTime * 7); // 회전하며 날아감
 
-            // 책 표지
-            ctx.fillStyle = '#1e3a8a';
-            ctx.fillRect(-12, -14, 24, 28);
-
-            // 텍스트 (C++)
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 10px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("C++", 0, 4);
+            if (SKILL_ICON_IMAGES.print.complete && SKILL_ICON_IMAGES.print.naturalWidth !== 0) {
+                ctx.drawImage(SKILL_ICON_IMAGES.print, -20, -20, 40, 40);
+            } else {
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(-12, -14, 24, 28);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 10px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("C++", 0, 4);
+            }
 
             ctx.restore();
         } else if (p.type === 'c_pointer') {
@@ -1567,30 +1734,39 @@ function draw() {
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(gameTime * 7);
-            ctx.fillStyle = '#f43f5e';
-            ctx.beginPath();
-            ctx.arc(0, 0, 15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'white';
-            ctx.font = '10px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("Commit", 0, 3);
+            if (SKILL_ICON_IMAGES.git_push.complete && SKILL_ICON_IMAGES.git_push.naturalWidth !== 0) {
+                ctx.drawImage(SKILL_ICON_IMAGES.git_push, -20, -20, 40, 40);
+            } else {
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.arc(0, 0, 15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("Commit", 0, 3);
+            }
             ctx.restore();
         } else if (p.type === 'memory_leak') {
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(gameTime * -5);
-            ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
-            ctx.beginPath();
-            ctx.moveTo(0, -15);
-            ctx.lineTo(15, 0);
-            ctx.lineTo(0, 15);
-            ctx.lineTo(-15, 0);
-            ctx.fill();
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 10px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("Leak", 0, 3);
+            // 스파게티 스킬 크기 조정 (기존 10배 → 절반)
+            if (SKILL_ICON_IMAGES.memory_leak.complete && SKILL_ICON_IMAGES.memory_leak.naturalWidth !== 0) {
+                ctx.drawImage(SKILL_ICON_IMAGES.memory_leak, -90, -90, 180, 180);
+            } else {
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
+                ctx.beginPath();
+                ctx.moveTo(0, -15);
+                ctx.lineTo(15, 0);
+                ctx.lineTo(0, 15);
+                ctx.lineTo(-15, 0);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 10px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("Leak", 0, 3);
+            }
             ctx.restore();
         } else if (p.type === 'boss_c') {
             // 보스의 C 투사체 그리기
@@ -1598,11 +1774,15 @@ function draw() {
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rotation || 0);
 
-            // C 모양 — 빨간색 글자
-            ctx.fillStyle = '#ef4444';
-            ctx.font = 'bold 28px Fira Code';
+            const size = p.radius ? p.radius * 2 : 42;
+            ctx.font = `bold ${size}px Fira Code`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#0f172a';
+            ctx.strokeText('C', 0, 0);
+
+            ctx.fillStyle = '#ef4444';
             ctx.fillText('C', 0, 0);
 
             // 글로우 효과
@@ -1628,20 +1808,23 @@ function draw() {
             let hx = player.x + Math.cos(angle) * radius;
             let hy = player.y + Math.sin(angle) * radius;
 
-            // 망치 그리기 (아이콘 또는 도형)
             ctx.save();
             ctx.translate(hx, hy);
             ctx.rotate(angle + Math.PI / 2); // 회전 방향 맞춰서
 
-            // 망치 자루
-            ctx.fillStyle = '#78350f';
-            ctx.fillRect(-2, -15, 4, 30);
-            // 망치 머리
-            ctx.fillStyle = isRREvo ? '#f43f5e' : '#cbd5e1'; // 진화시 붉은망치
-            ctx.fillRect(-10, -20, 20, 15);
-            ctx.fillStyle = '#0f172a';
-            ctx.font = '10px Fira Code';
-            ctx.fillText("RR", 0, -10);
+            if (SKILL_ICON_IMAGES.round_robin.complete && SKILL_ICON_IMAGES.round_robin.naturalWidth !== 0) {
+                ctx.drawImage(SKILL_ICON_IMAGES.round_robin, -20, -20, 40, 40);
+            } else {
+                // 망치 그리기 (아이콘 또는 도형)
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(-2, -15, 4, 30);
+                // 망치 머리
+                ctx.fillStyle = isRREvo ? '#f43f5e' : '#cbd5e1'; // 진화시 붉은망치
+                ctx.fillRect(-10, -20, 20, 15);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '10px Fira Code';
+                ctx.fillText("RR", 0, -10);
+            }
 
             ctx.restore();
         }
@@ -1793,7 +1976,7 @@ function loop() {
     // 최대 dt 보정 (창을 내렸다가 켰을 때 튕기는 현상 방지)
     if (dt > 0.1) dt = 0.1;
 
-    if (gameState === 'playing') {
+    if (gameState === 'playing' || bossWarning) {
         update(dt);
     }
 
