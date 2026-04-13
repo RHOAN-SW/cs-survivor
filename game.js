@@ -578,9 +578,9 @@ function triggerLevelUp() {
         if (currentLvl < s.max) pool.push(s);
     });
 
-    // 랜덤으로 4개(이하) 뽑기
+    // 랜덤으로 3개(이하) 뽑기
     pool.sort(() => Math.random() - 0.5);
-    let choices = pool.slice(0, 4);
+    let choices = pool.slice(0, 3);
 
     if (choices.length === 0) {
         // 더이상 올릴 스킬이 없으면 체력이나 돈 보상
