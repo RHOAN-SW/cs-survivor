@@ -257,17 +257,40 @@ ITEM_ICON_IMAGES.magnet.src = 'magnet.png';
 
 const SKILL_ICON_IMAGES = {
     print: new Image(),
+    git_push: new Image(),
     memory_leak: new Image(),
-    round_robin: new Image(),
-    git_push: new Image()
+    round_robin: new Image()
 };
 SKILL_ICON_IMAGES.print.src = 'sk_print.png';
+SKILL_ICON_IMAGES.git_push.src = 'sk_commit.png';
 SKILL_ICON_IMAGES.memory_leak.src = 'sk_code.png';
 SKILL_ICON_IMAGES.round_robin.src = 'sk_round.png';
-SKILL_ICON_IMAGES.git_push.src = 'sk_commit.png';
+
+const SKILL_SELECT_IMAGES = {
+    print: new Image(),
+    c_pointer: new Image(),
+    git_push: new Image(),
+    memory_leak: new Image(),
+    round_robin: new Image(),
+    stack_overflow: new Image(),
+    keyboard: new Image(),
+    caffeine: new Image(),
+    auto_test: new Image(),
+    context_switch: new Image()
+};
+SKILL_SELECT_IMAGES.print.src = 'asset/skill_print.png';
+SKILL_SELECT_IMAGES.c_pointer.src = 'asset/skill_c_pointer.png';
+SKILL_SELECT_IMAGES.git_push.src = 'asset/skill_git_push.png';
+SKILL_SELECT_IMAGES.memory_leak.src = 'asset/skill_memory_leak.png';
+SKILL_SELECT_IMAGES.round_robin.src = 'asset/skill_cooling_fen.png';
+SKILL_SELECT_IMAGES.stack_overflow.src = 'asset/stack_overflow.png';
+SKILL_SELECT_IMAGES.keyboard.src = 'asset/skill_Keyboard.png';
+SKILL_SELECT_IMAGES.caffeine.src = 'asset/skill_caffeine.png';
+SKILL_SELECT_IMAGES.auto_test.src = 'asset/skill_auto_test.png';
+SKILL_SELECT_IMAGES.context_switch.src = 'asset/skill_context_switch.png';
 
 function getSkillIconUrl(skillId) {
-    return SKILL_ICON_IMAGES[skillId]?.src || '';
+    return SKILL_SELECT_IMAGES[skillId]?.src || '';
 }
 
 let gameState = 'playing'; // playing, levelup, gameover, paused
