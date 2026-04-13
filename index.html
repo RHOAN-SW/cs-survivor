@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>컴공 서바이버 (CS Survivor)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 전체 페이지 래퍼 -->
+    <div id="page-wrapper">
+        <h1 id="page-title">🖥️ CS Survivor</h1>
+
+        <!-- 게임 컨테이너 (창모드처럼 보이는 영역) -->
+        <div id="game-container">
+            <!-- 창 제목바 -->
+            <div id="window-titlebar">
+                <div class="window-dots">
+                    <span class="dot dot-red"></span>
+                    <span class="dot dot-yellow"></span>
+                    <span class="dot dot-green"></span>
+                </div>
+                <span class="window-title">cs_survivor.exe — 실행 중</span>
+                <div class="window-dots" style="visibility: hidden;">
+                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                </div>
+            </div>
+
+            <!-- 게임 영역 -->
+            <div id="game-viewport">
+                <canvas id="gameCanvas"></canvas>
+
+                <div id="ui-layer">
+                    <div id="top-hud">
+                        <div id="exp-container">
+                            <div id="exp-bar"></div>
+                        </div>
+                        <div id="stats-row">
+                            <div>Level: <span id="val-level">1</span></div>
+                            <div>HP: <span id="val-hp">100</span>/100</div>
+                            <div>Time: <span id="val-time">00:00</span></div>
+                        </div>
+                    </div>
+
+                    <div id="levelup-modal" class="modal-container hidden">
+                        <div class="panel">
+                            <h2>컴파일 완료! (Level Up)</h2>
+                            <p>새로운 모듈을 임포트하세요.</p>
+                            <div id="skill-options">
+                                <!-- 스킬 버튼 주입 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="gameover-modal" class="modal-container hidden">
+                        <div class="panel gameover-panel">
+                            <h2>런타임 에러 발생 (Game Over)</h2>
+                            <p>재수강입니다~~</p>
+                            <p>버틴 시간: <span id="final-time"></span></p>
+
+                            <!-- 닉네임 입력 및 기록 등록 영역 -->
+                            <div id="score-submit-area">
+                                <div class="nickname-input-group">
+                                    <input type="text" id="nickname-input" placeholder="닉네임 입력 (최대 10자)" maxlength="10" autocomplete="off" />
+                                    <button id="submit-score-btn" class="submit-btn" onclick="submitScore()">기록 등록</button>
+                                </div>
+                                <p id="submit-status" class="submit-status"></p>
+                            </div>
+
+                            <button class="restart-btn" onclick="location.reload()">IDE 재시작</button>
+                        </div>
+                    </div>
+
+                    <div id="pause-modal" class="modal-container hidden">
+                        <div class="panel">
+                            <h2>Pause (일시 정지)</h2>
+                            <p>디버깅 중...</p>
+                            <button class="restart-btn" onclick="togglePause()">계속하기</button>
+                            <div style="margin-top: 10px;"></div>
+                            <button class="restart-btn" onclick="location.reload()" style="background-color: #f43f5e;">IDE 재시작</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 리더보드 (게임 컨테이너 아래) -->
+        <div id="leaderboard-container">
+            <div id="leaderboard-header">
+                <h2>🏆 생존 랭킹 (Top Survivors)</h2>
+                <button id="refresh-leaderboard-btn" onclick="loadLeaderboard()">새로고침</button>
+            </div>
+            <div id="leaderboard-body">
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>닉네임</th>
+                            <th>생존 시간</th>
+                            <th>레벨</th>
+                            <th>날짜</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-tbody">
+                        <!-- JS에서 동적으로 채움 -->
+                    </tbody>
+                </table>
+                <p id="leaderboard-empty" class="hidden">아직 등록된 기록이 없습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>
