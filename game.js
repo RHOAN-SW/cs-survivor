@@ -942,9 +942,11 @@ function update(dt) {
         if (en.hp <= 0) {
             // 사망 및 드랍 처리
             let rnd = Math.random();
-            if(rnd < 0.01) { // 1% 확률 족보
+            if(rnd < 0.005) { // 0.5% 확률 족보
                 expGems.push({ x: en.x, y: en.y, type: 'cheat_sheet' });
-            } else if(rnd < 0.06) { // 5% 확률 에너지 드링크
+            } else if(rnd < 0.025) { // 2% 확률 폭탄
+                expGems.push({ x: en.x, y: en.y, type: 'bomb' });
+            } else if(rnd < 0.07) { // 4.5% 확률 에너지 드링크
                 expGems.push({ x: en.x, y: en.y, type: 'energy_drink' });
             } else {
                 expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
@@ -1002,6 +1004,27 @@ function update(dt) {
             } else if (g.type === 'cheat_sheet') {
                 triggerLevelUp();
                 spawnFloatingText(player.x, player.y - 30, "족보 Get!", '#f472b6');
+            } else if (g.type === 'bomb') {
+                // 💣 폭탄: 화면 내 모든 적 처치 + 경험치 드랍
+                spawnFloatingText(player.x, player.y - 40, "💣 BOOM!", '#fbbf24');
+                
+                // 폭발 이펙트
+                projectiles.push({
+                    x: player.x, y: player.y, type: 'bomb_explode',
+                    maxRadius: Math.max(canvas.width, canvas.height),
+                    currentRadius: 0, life: 0.8
+                });
+                
+                // 모든 적 처치 & 경험치 드랍
+                let killCount = enemies.length;
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    let en = enemies[j];
+                    // 각 적이 경험치를 드랍
+                    expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
+                }
+                enemies.length = 0; // 모든 적 제거
+                
+                spawnFloatingText(player.x, player.y - 60, killCount + " KILL!", '#ef4444');
             } else {
                 addExp(g.val || 1);
             }
@@ -1070,6 +1093,44 @@ function draw() {
             ctx.font = 'bold 12px Fira Code';
             ctx.textAlign = 'center';
             ctx.fillText("A+", g.x, g.y + 4);
+        } else if (g.type === 'bomb') {
+            // 폭탄 아이템 그리기 (빨간 원 + 💣)
+            let pulse = 1 + Math.sin(gameTime * 6) * 0.15;
+            ctx.save();
+            ctx.translate(g.x, g.y);
+            ctx.scale(pulse, pulse);
+            
+            // 외곽 글로우
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+            ctx.fill();
+            
+            // 본체
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fill();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 심지
+            ctx.beginPath();
+            ctx.moveTo(4, -8);
+            ctx.lineTo(8, -14);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 불꽃
+            let sparkAlpha = 0.5 + Math.sin(gameTime * 15) * 0.5;
+            ctx.beginPath();
+            ctx.arc(8, -14, 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(251, 191, 36, ${sparkAlpha})`;
+            ctx.fill();
+            
+            ctx.restore();
         } else {
             ctx.fillStyle = '#10b981';
             ctx.beginPath();
@@ -1081,7 +1142,7 @@ function draw() {
         }
     });
 
-    // 지면 장판 효과 (Stack Overflow)
+    // 지면 장판 효과 (Stack Overflow & 폭탄 폭발)
     projectiles.forEach(p => {
         if(p.type === 'stack_aoe') {
             ctx.beginPath();
@@ -1093,10 +1154,42 @@ function draw() {
             ctx.strokeStyle = `rgba(225, 29, 72, ${alpha})`;
             ctx.stroke();
             
-            // 글자 파티클 (Stack)
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
             ctx.font = '20px Fira Code';
             ctx.fillText("StackOverflowError", p.x - 90, p.y);
+        } else if(p.type === 'bomb_explode') {
+            // 폭탄 폭발 이펙트 (화면 전체 쇼크웨이브)
+            let progress = 1 - (p.life / 0.8);
+            p.currentRadius = progress * p.maxRadius;
+            let alpha = p.life / 0.8;
+            
+            // 쇼크웨이브 링
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.currentRadius, 0, Math.PI * 2);
+            ctx.lineWidth = 8 * alpha;
+            ctx.strokeStyle = `rgba(251, 191, 36, ${alpha * 0.8})`;
+            ctx.stroke();
+            
+            // 내부 글로우
+            let grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.currentRadius * 0.5);
+            grd.addColorStop(0, `rgba(239, 68, 68, ${alpha * 0.4})`);
+            grd.addColorStop(1, `rgba(239, 68, 68, 0)`);
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.currentRadius * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 💣 텍스트
+            if (alpha > 0.5) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${(alpha - 0.5) * 2})`;
+                ctx.font = 'bold 28px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("SEGFAULT BOMB!", p.x, p.y);
+            }
+            
+            if(p.life <= 0) {
+                projectiles.splice(projectiles.indexOf(p), 1);
+            }
         }
     });
 
