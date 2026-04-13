@@ -6,12 +6,13 @@ const ctx = canvas.getContext('2d');
 const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || ('ontouchstart' in window && window.innerWidth < 840);
 
-// 모바일에서는 캔버스를 더 크게 만들어 화면을 넓게 보여줌 (배율 낮춤)
-const MOBILE_SCALE = 1.5; // 모바일에서 1.5배 넓게
+// 맵 배율: 값이 클수록 더 많은 영역이 보임 (더 작게 보임)
+const MAP_SCALE = 1.8;        // PC에서 1.8배 축소
+const MOBILE_SCALE = 2.2;     // 모바일에서 2.2배 축소
 
 function resizeCanvas() {
     const viewport = document.getElementById('game-viewport');
-    const scale = isMobile ? MOBILE_SCALE : 1;
+    const scale = isMobile ? MOBILE_SCALE : MAP_SCALE;
     canvas.width = viewport.clientWidth * scale;
     canvas.height = viewport.clientHeight * scale;
 }
@@ -197,16 +198,52 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // === 게임 상태 및 데이터 ===
-const mapImg = new Image();
-mapImg.src = 'map_tile.png';
-const studentImg = new Image();
-studentImg.src = 'student.png';
+// 맵타일 이미지 2종 (랜덤 배치)
+const mapTile1 = new Image();
+mapTile1.src = 'maptile_1.png';
+const mapTile2 = new Image();
+mapTile2.src = 'maptile_2.png';
+
+// 타일 위치별 랜덤 배치를 위한 해시 함수 (시드 기반 - 항상 같은 패턴)
+function tileHash(ix, iy) {
+    let h = (ix * 374761393 + iy * 668265263) ^ 0x5bd1e995;
+    h = (h ^ (h >>> 13)) * 0x5bd1e995;
+    return (h ^ (h >>> 15)) & 0x7fffffff;
+}
+
+// 스프라이트시트 기반 캐릭터
+const spritesheetImg = new Image();
+spritesheetImg.src = 'spritesheet.png';
+
+// sprites.json 데이터 (하드코딩 — 빌드 시 로드 불필요)
+// 방향별 프레임 매핑:
+//   Row별 Y좌표 기준 정렬 후, X좌표 기준 컬럼 분류
+//   Col1(x≈400): 정면(아래), Col2(x≈1370): 옆면, Col3(x≈2320): 뒷면(위)
+const SPRITE_FRAMES = {
+    // dir 0 = 아래(정면): col1 스프라이트들
+    down: [
+        { x: 402, y: 159, w: 147, h: 226 },   // sprite13 - frame 0
+        { x: 401, y: 723, w: 148, h: 211 },    // sprite17 - frame 1
+        { x: 401, y: 1248, w: 147, h: 233 },   // sprite19 - frame 2
+    ],
+    // dir 1,2 = 옆면: col2 스프라이트들 (왼쪽은 flip)
+    side: [
+        { x: 1381, y: 167, w: 140, h: 218 },   // sprite14 - frame 0
+        { x: 1366, y: 706, w: 146, h: 211 },    // sprite16 - frame 1
+        { x: 1363, y: 1247, w: 146, h: 218 },   // sprite18 - frame 2
+    ],
+    // dir 3 = 위(뒷면): col3 스프라이트들 + 추가 프레임
+    up: [
+        { x: 2330, y: 147, w: 147, h: 211 },   // sprite12 - frame 0
+        { x: 2317, y: 682, w: 147, h: 226 },   // sprite15 - frame 1
+        { x: 2330, y: 147, w: 147, h: 211 },   // sprite12 - frame 2 (반복)
+    ]
+};
 
 const mon1Img = new Image(); mon1Img.src = 'mon1.png';
 const mon2Img = new Image(); mon2Img.src = 'mon2.png';
 const mon3Img = new Image(); mon3Img.src = 'mon3.png';
 const mon4Img = new Image(); mon4Img.src = 'mon4.png';
-studentImg.src = 'student.png';
 
 let gameState = 'playing'; // playing, levelup, gameover, paused
 let gameTime = 0;
@@ -436,6 +473,12 @@ let weaponsState = {
     memoryleakTimer: 0
 };
 
+// === 보스 시스템 ===
+let boss = null;           // 현재 보스 (null이면 없음)
+let bossWarning = null;    // 경고 연출 상태
+let bossSpawned = false;   // 보스가 이미 소환되었는지
+const BOSS_SPAWN_TIME = 120; // 2분
+
 // 스킬 DB
 const SKILL_DB = {
     print: {
@@ -551,6 +594,7 @@ function triggerLevelUp() {
         let isEvo = c.type === 'evolution';
 
         btn.innerHTML = `
+            <div class="skill-icon"></div>
             <div class="skill-info">
                 <div class="skill-name" style="color: ${isEvo ? '#f472b6' : 'var(--accent)'}">${c.name}</div>
                 <div class="skill-desc">${c.desc}</div>
@@ -738,6 +782,20 @@ function update(dt) {
                     }
                 }
             });
+
+            // 보스에게도 망치 히트 판정
+            if (boss) {
+                let bDist = getDistance(hx, hy, boss.x, boss.y);
+                if (bDist < boss.radius + 15) {
+                    if (!boss.lastHitTime) boss.lastHitTime = {};
+                    let sourceId = 'hammer_' + i;
+                    if (gameTime - (boss.lastHitTime[sourceId] || 0) > 0.4) {
+                        boss.hp -= damage;
+                        boss.lastHitTime[sourceId] = gameTime;
+                        spawnFloatingText(boss.x, boss.y, damage.toString(), '#fbbf24');
+                    }
+                }
+            }
         }
     }
 
@@ -824,7 +882,7 @@ function update(dt) {
         }
     }
 
-    // 투사체 업데이트
+    // 투사체 처리
     for (let i = projectiles.length - 1; i >= 0; i--) {
         let p = projectiles[i];
         p.life -= dt;
@@ -844,6 +902,12 @@ function update(dt) {
                     break;
                 }
             }
+            // 보스 히트 판정
+            if (!hit && boss && getDistance(p.x, p.y, boss.x, boss.y) < boss.radius + 10) {
+                boss.hp -= p.damage;
+                hit = true;
+                spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
+            }
             if (hit || p.life <= 0) projectiles.splice(i, 1);
         } else if (p.type === 'stack_aoe') {
             // 커지는 원 형태
@@ -856,6 +920,11 @@ function update(dt) {
                             spawnFloatingText(en.x, en.y, p.damage.toString(), '#fb7185');
                         }
                     });
+                    // 보스에게도 광역 피해
+                    if (boss && getDistance(p.x, p.y, boss.x, boss.y) < p.maxRadius) {
+                        boss.hp -= p.damage;
+                        spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
+                    }
                     p.hasHit = true;
                 }
             }
@@ -873,6 +942,12 @@ function update(dt) {
                     break;
                 }
             }
+            // 보스 히트
+            if (!hit && boss && getDistance(p.x, p.y, boss.x, boss.y) < boss.radius + 10) {
+                boss.hp -= p.damage;
+                hit = true;
+                spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
+            }
             if (hit || p.life <= 0) projectiles.splice(i, 1);
         } else if (p.type === 'git_push') {
             p.vy += p.gravity * dt;
@@ -887,6 +962,15 @@ function update(dt) {
                         p.lastHit[en.name + j] = gameTime;
                         spawnFloatingText(en.x, en.y, p.damage.toString(), '#f43f5e');
                     }
+                }
+            }
+            // 보스 히트
+            if (boss && getDistance(p.x, p.y, boss.x, boss.y) < boss.radius + 15) {
+                if (!p.lastHit) p.lastHit = {};
+                if (gameTime - (p.lastHit['boss'] || 0) > 0.5) {
+                    boss.hp -= p.damage;
+                    p.lastHit['boss'] = gameTime;
+                    spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
                 }
             }
             if (p.life <= 0) projectiles.splice(i, 1);
@@ -911,6 +995,39 @@ function update(dt) {
                     }
                 }
             }
+            // 보스 히트 (관통)
+            if (boss && getDistance(p.x, p.y, boss.x, boss.y) < boss.radius + 10) {
+                if (gameTime - (p.lastHit['boss'] || 0) > 0.5) {
+                    boss.hp -= p.damage;
+                    p.lastHit['boss'] = gameTime;
+                    spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
+                }
+            }
+            if (p.life <= 0) projectiles.splice(i, 1);
+        } else if (p.type === 'boss_c') {
+            // 보스의 C 투사체 — 플레이어에게 데미지
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            if (p.rotation !== undefined) p.rotation += 3 * dt;
+
+            let distToPlayer = getDistance(p.x, p.y, player.x, player.y);
+            if (distToPlayer < 18) {
+                player.hp -= p.damage;
+                spawnFloatingText(player.x, player.y - 20, p.damage.toString(), '#ef4444');
+                p.life = 0;
+                if (player.hp <= 0) {
+                    gameState = 'gameover';
+                    document.getElementById('final-time').innerText = getFormattedTime(gameTime);
+                    document.getElementById('gameover-modal').classList.remove('hidden');
+                    const ni = document.getElementById('nickname-input');
+                    const sb = document.getElementById('submit-score-btn');
+                    if (ni) { ni.disabled = false; ni.value = ''; }
+                    if (sb) { sb.disabled = false; sb.textContent = '기록 등록'; }
+                    const ss = document.getElementById('submit-status');
+                    if (ss) { ss.textContent = ''; ss.className = 'submit-status'; }
+                    setTimeout(() => { if (ni) ni.focus(); }, 300);
+                }
+            }
             if (p.life <= 0) projectiles.splice(i, 1);
         }
     }
@@ -933,6 +1050,103 @@ function update(dt) {
             exp: type.exp,
             img: type.img
         });
+    }
+
+    // === 보스 스폰 (2분 경과 시) ===
+    if (!bossSpawned && gameTime >= BOSS_SPAWN_TIME && !bossWarning) {
+        // 경고 연출 시작
+        bossWarning = { timer: 3.0, phase: 'warning' }; // 3초간 경고
+        bossSpawned = true;
+    }
+
+    // 경고 연출 처리
+    if (bossWarning) {
+        bossWarning.timer -= dt;
+        if (bossWarning.timer <= 0) {
+            // 경고 끝 → 보스 소환!
+            let angle = Math.random() * Math.PI * 2;
+            let dist = canvas.width / 2 + 200;
+            boss = {
+                x: player.x + Math.cos(angle) * dist,
+                y: player.y + Math.sin(angle) * dist,
+                hp: 2000,
+                maxHp: 2000,
+                speed: 50,
+                radius: 50,
+                name: 'Prof. C',
+                attackTimer: 0,
+                attackCooldown: 2.0,   // 2초마다 C 살포
+                burstCount: 12,        // 한 번에 12 방향
+                phase: 0               // 패턴 카운터
+            };
+            bossWarning = null;
+        }
+    }
+
+    // === 보스 업데이트 ===
+    if (boss) {
+        // 보스 사망 체크
+        if (boss.hp <= 0) {
+            // 보스 처치 보상: 대량 경험치 + 족보
+            for (let i = 0; i < 20; i++) {
+                let ox = boss.x + (Math.random() - 0.5) * 80;
+                let oy = boss.y + (Math.random() - 0.5) * 80;
+                expGems.push({ x: ox, y: oy, val: 10, type: 'exp' });
+            }
+            expGems.push({ x: boss.x, y: boss.y, type: 'cheat_sheet' });
+            spawnFloatingText(boss.x, boss.y - 40, '🎓 교수님 격퇴!', '#fbbf24');
+            boss = null;
+        } else {
+            // 보스 이동 (플레이어 방향으로 느리게 추적)
+            let bx = player.x - boss.x;
+            let by = player.y - boss.y;
+            let bDist = Math.sqrt(bx * bx + by * by);
+            if (bDist > 0) {
+                boss.x += (bx / bDist) * boss.speed * dt;
+                boss.y += (by / bDist) * boss.speed * dt;
+            }
+
+            // 보스 공격: C 살포
+            boss.attackTimer -= dt;
+            if (boss.attackTimer <= 0) {
+                boss.attackTimer = boss.attackCooldown;
+                boss.phase++;
+
+                let count = boss.burstCount;
+                let offsetAngle = (boss.phase % 2) * (Math.PI / count); // 매번 약간 회전
+
+                for (let i = 0; i < count; i++) {
+                    let a = (Math.PI * 2 / count) * i + offsetAngle;
+                    projectiles.push({
+                        x: boss.x, y: boss.y,
+                        vx: Math.cos(a) * 180,
+                        vy: Math.sin(a) * 180,
+                        life: 3.0,
+                        type: 'boss_c',
+                        damage: 15,
+                        rotation: Math.random() * Math.PI * 2
+                    });
+                }
+                spawnFloatingText(boss.x, boss.y - 60, 'C!  C!  C!', '#ef4444');
+            }
+
+            // 보스 접촉 데미지
+            if (bDist < boss.radius + 15) {
+                player.hp -= 20 * dt;
+                if (player.hp <= 0) {
+                    gameState = 'gameover';
+                    document.getElementById('final-time').innerText = getFormattedTime(gameTime);
+                    document.getElementById('gameover-modal').classList.remove('hidden');
+                    const ni = document.getElementById('nickname-input');
+                    const sb = document.getElementById('submit-score-btn');
+                    if (ni) { ni.disabled = false; ni.value = ''; }
+                    if (sb) { sb.disabled = false; sb.textContent = '기록 등록'; }
+                    const ss = document.getElementById('submit-status');
+                    if (ss) { ss.textContent = ''; ss.className = 'submit-status'; }
+                    setTimeout(() => { if (ni) ni.focus(); }, 300);
+                }
+            }
+        }
     }
 
     // 적 이동 및 충돌
@@ -1052,16 +1266,30 @@ function draw() {
     ctx.save();
     ctx.translate(-Math.floor(camX), -Math.floor(camY));
 
-    // 배경 이미지 타일링
-    if (mapImg.complete && mapImg.naturalWidth !== 0) {
-        let w = mapImg.width;
-        let h = mapImg.height;
-        let sX = Math.floor(camX / w) * w;
-        let sY = Math.floor(camY / h) * h;
+    // 배경 이미지 타일링 (maptile_1, maptile_2 랜덤 배치)
+    const t1Ready = mapTile1.complete && mapTile1.naturalWidth !== 0;
+    const t2Ready = mapTile2.complete && mapTile2.naturalWidth !== 0;
 
-        for (let x = sX; x < camX + canvas.width; x += w) {
-            for (let y = sY; y < camY + canvas.height; y += h) {
-                ctx.drawImage(mapImg, x, y, w, h);
+    if (t1Ready || t2Ready) {
+        // 두 타일 중 로드된 것 기준으로 크기 설정
+        let refTile = t1Ready ? mapTile1 : mapTile2;
+        let w = refTile.width;
+        let h = refTile.height;
+        let sX = Math.floor(camX / w);
+        let sY = Math.floor(camY / h);
+        let eX = Math.ceil((camX + canvas.width) / w);
+        let eY = Math.ceil((camY + canvas.height) / h);
+
+        for (let ix = sX; ix <= eX; ix++) {
+            for (let iy = sY; iy <= eY; iy++) {
+                // 해시로 타일 종류 결정 (0 or 1)
+                let tileType = tileHash(ix, iy) % 2;
+                let tileImg;
+                if (tileType === 0 && t1Ready) tileImg = mapTile1;
+                else if (tileType === 1 && t2Ready) tileImg = mapTile2;
+                else tileImg = refTile; // 하나만 로드된 경우 fallback
+
+                ctx.drawImage(tileImg, ix * w, iy * h, w, h);
             }
         }
     } else {
@@ -1232,6 +1460,82 @@ function draw() {
         ctx.fillRect(en.x - 15, en.y - en.radius - 10, 30 * hpRatio, 4);
     });
 
+    // 보스 그리기
+    if (boss) {
+        let bobY = Math.sin(gameTime * 3) * 5;
+
+        ctx.save();
+        ctx.translate(boss.x, boss.y + bobY);
+
+        // 보스 몸체 (교수님)
+        // 가운
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-30, -15, 60, 50);
+
+        // 머리
+        ctx.fillStyle = '#fde68a';
+        ctx.beginPath();
+        ctx.arc(0, -25, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 안경
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(-9, -27, 7, 0, Math.PI * 2);
+        ctx.arc(9, -27, 7, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-2, -27);
+        ctx.lineTo(2, -27);
+        ctx.stroke();
+
+        // 눈 (빨간색 — 화남)
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(-9, -27, 3, 0, Math.PI * 2);
+        ctx.arc(9, -27, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 입 (미소? 웃음?)
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, -18, 8, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        // 넥타이
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(0, -15);
+        ctx.lineTo(-6, 5);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(6, 5);
+        ctx.fill();
+
+        // "C" 표시 (가운에)
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 24px Fira Code';
+        ctx.textAlign = 'center';
+        ctx.fillText('C', 0, 28);
+
+        ctx.restore();
+
+        // 이름 표시
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 14px Fira Code';
+        ctx.textAlign = 'center';
+        ctx.fillText(boss.name, boss.x, boss.y + boss.radius + 15);
+
+        // 보스 HP 바 (화면 상단 고정은 draw 밖에서, 여기는 월드 좌표)
+        let bHpRatio = boss.hp / boss.maxHp;
+        let bBarW = 80;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(boss.x - bBarW / 2, boss.y - boss.radius - 20, bBarW, 6);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(boss.x - bBarW / 2, boss.y - boss.radius - 20, bBarW * bHpRatio, 6);
+    }
+
     // 투사체 그리기
     projectiles.forEach(p => {
         if (p.type === 'print') {
@@ -1288,6 +1592,26 @@ function draw() {
             ctx.textAlign = 'center';
             ctx.fillText("Leak", 0, 3);
             ctx.restore();
+        } else if (p.type === 'boss_c') {
+            // 보스의 C 투사체 그리기
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation || 0);
+
+            // C 모양 — 빨간색 글자
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 28px Fira Code';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('C', 0, 0);
+
+            // 글로우 효과
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 10;
+            ctx.fillText('C', 0, 0);
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
         }
     });
 
@@ -1323,15 +1647,25 @@ function draw() {
         }
     }
 
-    // 플레이어 그리기 (단일 이미지)
-    if (studentImg.complete && studentImg.naturalWidth !== 0) {
+    // 플레이어 그리기 (스프라이트시트 기반 애니메이션)
+    if (spritesheetImg.complete && spritesheetImg.naturalWidth !== 0) {
+        // 방향에 맞는 프레임 세트 선택
+        let dirKey = 'down';
+        if (player.dir === 1 || player.dir === 2) dirKey = 'side';
+        else if (player.dir === 3) dirKey = 'up';
+
+        let frames = SPRITE_FRAMES[dirKey];
+        let frameIdx = player.frame % frames.length;
+        let spr = frames[frameIdx];
+
         let destW = 60;
         // 원본 비율에 맞게 높이 계산
-        let destH = 60 * (studentImg.naturalHeight / studentImg.naturalWidth);
+        let destH = 60 * (spr.h / spr.w);
 
         // 걷는 느낌을 주기 위한 통통 튀는 효과 (bobbing)
         let bobbingY = 0;
-        let isMoving = (keys['KeyW'] || keys['ArrowUp'] || keys['KeyS'] || keys['ArrowDown'] || keys['KeyA'] || keys['ArrowLeft'] || keys['KeyD'] || keys['ArrowRight']);
+        let isMoving = (keys['KeyW'] || keys['ArrowUp'] || keys['KeyS'] || keys['ArrowDown'] || keys['KeyA'] || keys['ArrowLeft'] || keys['KeyD'] || keys['ArrowRight'])
+            || joystick.active || mouse.pressed;
         if (isMoving) {
             bobbingY = Math.abs(Math.sin(gameTime * 10)) * -8;
         }
@@ -1339,13 +1673,17 @@ function draw() {
         ctx.save();
         ctx.translate(player.x, player.y);
 
-        // 왼쪽 방향일 경우 좌우 반전
-        if (player.dir === 1) {
+        // 오른쪽 방향일 경우 좌우 반전 (스프라이트 원본이 왼쪽 향)
+        if (player.dir === 2) {
             ctx.scale(-1, 1);
         }
 
-        // 이미지의 발끝(하단 중심)을 player.x, player.y에 맞춤
-        ctx.drawImage(studentImg, -destW / 2, -destH + bobbingY, destW, destH);
+        // 스프라이트시트에서 해당 프레임 영역을 잘라서 그리기
+        ctx.drawImage(
+            spritesheetImg,
+            spr.x, spr.y, spr.w, spr.h,    // 소스 영역
+            -destW / 2, -destH + bobbingY, destW, destH  // 대상 영역
+        );
         ctx.restore();
 
         let hpRatio = player.hp / player.maxHp;
@@ -1383,6 +1721,51 @@ function draw() {
     });
 
     ctx.restore();
+
+    // === 보스 WARNING 오버레이 (화면 고정 좌표) ===
+    if (bossWarning) {
+        let t = 3.0 - bossWarning.timer; // 경과 시간
+        let flashAlpha = Math.abs(Math.sin(t * 5)) * 0.3;
+
+        // 화면 가장자리 빨간 깜빡임
+        ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // WARNING 텍스트
+        let textAlpha = Math.abs(Math.sin(t * 4));
+        ctx.fillStyle = `rgba(239, 68, 68, ${textAlpha})`;
+        ctx.font = 'bold 48px Fira Code';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚠ WARNING ⚠', canvas.width / 2, canvas.height / 2 - 30);
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${textAlpha * 0.8})`;
+        ctx.font = 'bold 20px Fira Code';
+        ctx.fillText('교수님이 출현합니다...', canvas.width / 2, canvas.height / 2 + 20);
+    }
+
+    // === 보스 HP 바 (화면 상단 고정) ===
+    if (boss) {
+        let bHpRatio = boss.hp / boss.maxHp;
+        let barW = canvas.width * 0.6;
+        let barH = 12;
+        let barX = (canvas.width - barW) / 2;
+        let barY = 50;
+
+        // 배경
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+
+        // HP
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(barX, barY, barW * Math.max(0, bHpRatio), barH);
+
+        // 보스 이름
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 14px Fira Code';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎓 Prof. C — C 프로그래밍 교수', canvas.width / 2, barY - 8);
+    }
 }
 
 function getFormattedTime(timeNum) {
