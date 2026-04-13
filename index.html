@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>컴공 서바이버 (CS Survivor)</title>
+    <title>재수강 서바이버: 폭풍을 부르는 학점 사수 대작전</title>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -16,7 +16,7 @@
 
     <!-- 전체 페이지 래퍼 -->
     <div id="page-wrapper">
-        <h1 id="page-title">🖥️ CS Survivor</h1>
+        <h1 id="page-title">🎓 재수강 서바이버</h1>
 
         <!-- 게임 컨테이너 (창모드처럼 보이는 영역) -->
         <div id="game-container">
@@ -27,7 +27,7 @@
                     <span class="dot dot-yellow"></span>
                     <span class="dot dot-green"></span>
                 </div>
-                <span class="window-title">cs_survivor.exe — 실행 중</span>
+                <span class="window-title">grade_survival.exe — 실행 중</span>
                 <button id="fullscreen-btn" onclick="toggleFullscreen()" title="전체화면">⛶</button>
             </div>
 
@@ -57,7 +57,7 @@
 
                     <div id="levelup-modal" class="modal-container hidden">
                         <div class="panel">
-                            <h2>컴파일 완료! (Level Up)</h2>
+                            <h2>학점 사수 성공! (Level Up)</h2>
                             <p>새로운 모듈을 임포트하세요.</p>
                             <div id="skill-options">
                                 <!-- 스킬 버튼 주입 -->
@@ -67,8 +67,7 @@
 
                     <div id="gameover-modal" class="modal-container hidden">
                         <div class="panel gameover-panel">
-                            <h2>Game Over</h2>
-                            <p>재수강입니다~~</p>
+                            <h2>재수강 (Game Over)</h2>
                             <p>버틴 시간: <span id="final-time"></span></p>
 
                             <!-- 닉네임 입력 및 기록 등록 영역 -->
@@ -86,7 +85,7 @@
 
                     <div id="pause-modal" class="modal-container hidden">
                         <div class="panel">
-                            <h2>Pause</h2>
+                            <h2>휴강 (Pause)</h2>
                             <p>디버깅 중...</p>
                             <button class="restart-btn" onclick="togglePause()">계속하기</button>
                             <div style="margin-top: 10px;"></div>
