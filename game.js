@@ -782,7 +782,7 @@ function update(dt) {
                     projectiles.push({
                         x: player.x, y: player.y,
                         vx: Math.cos(a) * 300, vy: Math.sin(a) * 300,
-                        life: 1.5, type: 'print', damage: 15
+                        life: 1.5, type: 'print', damage: Math.round(15 * 1.5)
                     });
                 }
             } else {
@@ -802,7 +802,7 @@ function update(dt) {
                             projectiles.push({
                                 x: player.x, y: player.y,
                                 vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
-                                life: 1, type: 'print', damage: 10 + pLvl * 5
+                                life: 1, type: 'print', damage: Math.round((10 + pLvl * 5) * 1.5)
                             });
                         }, i * 100);
                     }
@@ -819,7 +819,7 @@ function update(dt) {
         let count = isRREvo ? 5 : (1 + rrLvl);
         let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
         let radius = 80 + (rrLvl * 10);
-        let damage = isRREvo ? 40 : 15 + (rrLvl * 5);
+        let damage = isRREvo ? Math.round(40 * 1.5) : Math.round((15 + (rrLvl * 5)) * 1.5);
 
         for (let i = 0; i < count; i++) {
             let angle = (gameTime * rrSpeed) + ((Math.PI * 2 / count) * i);
@@ -869,7 +869,7 @@ function update(dt) {
         if (weaponsState.stackTimer <= 0) {
             weaponsState.stackTimer = 3.0 * coolMult;
             let radius = 100 + (soLvl * 40);
-            let damage = 30 + (soLvl * 20);
+            let damage = Math.round((30 + (soLvl * 20)) * 1.5);
 
             // 시각 효과 발동용 
             projectiles.push({
@@ -897,7 +897,7 @@ function update(dt) {
                     projectiles.push({
                         x: player.x, y: player.y,
                         vx: Math.cos(angle) * 600, vy: Math.sin(angle) * 600,
-                        life: 2, type: 'c_pointer', damage: 15 + cpLvl * 5
+                        life: 2, type: 'c_pointer', damage: Math.round((15 + cpLvl * 5) * 1.5)
                     });
                 }, i * 150);
             }
@@ -919,7 +919,7 @@ function update(dt) {
                     projectiles.push({
                         x: player.x, y: player.y - 10,
                         vx: vx, vy: -500 - Math.random() * 200, gravity: 800,
-                        life: 3, type: 'git_push', damage: 30 + gpLvl * 15
+                        life: 3, type: 'git_push', damage: Math.round((30 + gpLvl * 15) * 1.5)
                     });
                 }, i * 200);
             }
@@ -938,7 +938,7 @@ function update(dt) {
                 projectiles.push({
                     x: player.x, y: player.y,
                     vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400,
-                    life: 5 + (mlLvl * 0.5), type: 'memory_leak', damage: 10 + mlLvl * 5,
+                    life: 5 + (mlLvl * 0.5), type: 'memory_leak', damage: Math.round((10 + mlLvl * 5) * 1.5),
                     lastHit: {}
                 });
             }
@@ -1319,6 +1319,10 @@ function update(dt) {
                     pullPower *= magnetActive ? 0.12 : 0.08;
                 } else if (magnetActive) {
                     pullPower *= 0.6 + strength * 0.4;
+                }
+
+                if (magnetActive) {
+                    pullPower *= 1.5;
                 }
 
                 if (dist < 50) {
