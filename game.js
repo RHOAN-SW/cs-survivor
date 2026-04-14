@@ -678,12 +678,20 @@ function triggerChest() {
     claimBtn.style.display = 'none';
     desc.innerText = '슬롯을 돌려 보유 중인 아이템을 무작위로 업그레이드합니다!';
 
-    // 보유 중인 스킬 중 만렙이 아닌 스킬만 필터링
-    let upgradeableSkills = Object.keys(player.skills).filter(k => {
-        let maxLvl = SKILL_DB[k]?.max || 5;
-        // 진화 스킬(1렙 만렙) 등은 제외
-        return player.skills[k] > 0 && player.skills[k] < maxLvl;
-    });
+    // 보유 중인 스킬 중 만렙이 아닌 스킬들의 '남은 레벨 업 가능 횟수'만큼 풀에 추가
+    let upgradePool = [];
+    for (let key in player.skills) {
+        if (player.skills[key] > 0) {
+            let maxLvl = SKILL_DB[key]?.max || 5;
+            let currentLvl = player.skills[key];
+            let remaining = maxLvl - currentLvl;
+            for (let i = 0; i < remaining; i++) {
+                upgradePool.push(key);
+            }
+        }
+    }
+    // 풀 셔플
+    upgradePool.sort(() => Math.random() - 0.5);
 
     let upgradeCount = 1;
     let rand = Math.random();
@@ -691,18 +699,14 @@ function triggerChest() {
     else if (rand < 0.5) upgradeCount = 2;    // 30%
                                               // 나머지 50%는 1개
 
-    if (upgradeableSkills.length === 0) {
-        // 업그레이드 할 스킬이 없는 경우 -> 핫식스로 대체
-        upgradeCount = 1;
-        pendingChestUpgrades = ['heal'];
-    } else {
-        // 실제 가능한 개수만큼만 선택
-        upgradeCount = Math.min(upgradeCount, upgradeableSkills.length);
-        pendingChestUpgrades = [];
-        // 후보 셔플
-        let shuffled = [...upgradeableSkills].sort(() => Math.random() - 0.5);
-        for (let i = 0; i < upgradeCount; i++) {
-            pendingChestUpgrades.push(shuffled[i]);
+    pendingChestUpgrades = [];
+    for (let i = 0; i < upgradeCount; i++) {
+        let pickedSkill = upgradePool.pop(); // 풀에서 하나씩 뽑기
+        if (pickedSkill) {
+            pendingChestUpgrades.push(pickedSkill);
+        } else {
+            // 풀이 비어서 더 이상 올릴 스킬이 없으면 핫식스(체력 회복)로 대체
+            pendingChestUpgrades.push('heal');
         }
     }
 
