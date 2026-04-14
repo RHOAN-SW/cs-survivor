@@ -166,6 +166,7 @@ const mon2Img = new Image(); mon2Img.src = 'mon2.png';
 const mon3Img = new Image(); mon3Img.src = 'mon3.png';
 const mon4Img = new Image(); mon4Img.src = 'mon4.png';
 const bossImg = new Image(); bossImg.src = 'boss_1.png';
+const boss2Img = new Image(); boss2Img.src = 'boss2.png';
 
 const ITEM_ICON_IMAGES = {
     energy_drink: new Image(),
@@ -469,8 +470,10 @@ let boss = null;           // 현재 보스 (null이면 없음)
 let bossWarning = null;    // 경고 연출 상태
 let bossSpawned = false;   // 2분 보스가 이미 소환되었는지
 let boss5mSpawned = false; // 5분 보스가 소환되었는지
+let boss15mSpawned = false;// 15분 보스가 소환되었는지
 const BOSS_SPAWN_TIME = 120; // 10초
 const BOSS_5M_SPAWN_TIME = 300; // 5분
+const BOSS_15M_SPAWN_TIME = 10; // 10초 (테스트용)
 
 // 스킬 DB
 const SKILL_DB = {
@@ -675,7 +678,7 @@ function triggerChest() {
     const slotsContainer = document.getElementById('chest-slots');
     const claimBtn = document.getElementById('chest-claim-btn');
     const desc = document.getElementById('chest-desc');
-    
+
     slotsContainer.innerHTML = '';
     claimBtn.style.display = 'none';
     desc.innerText = '슬롯을 돌려 보유 중인 아이템을 무작위로 업그레이드합니다!';
@@ -699,7 +702,7 @@ function triggerChest() {
     let rand = Math.random();
     if (rand < 0.2) upgradeCount = 3;         // 20%
     else if (rand < 0.5) upgradeCount = 2;    // 30%
-                                              // 나머지 50%는 1개
+    // 나머지 50%는 1개
 
     pendingChestUpgrades = [];
     for (let i = 0; i < upgradeCount; i++) {
@@ -722,13 +725,13 @@ function triggerChest() {
         slotsContainer.appendChild(slot);
         slotElements.push({ slot: slot, img: img });
     }
-    
+
     modal.classList.remove('hidden');
 
     // 슬롯머신 애니메이션
     let allIcons = Object.values(SKILL_DB).map(s => getSkillIconUrl(s.id)).filter(url => url);
     if (allIcons.length === 0) allIcons = ['asset/skill_print.png', 'asset/skill_keyboard.png'];
-    
+
     let spinInterval = setInterval(() => {
         slotElements.forEach(item => {
             item.img.style.display = 'block';
@@ -739,7 +742,7 @@ function triggerChest() {
     // 1.5초 후 멈추고 보상 확정
     setTimeout(() => {
         clearInterval(spinInterval);
-        
+
         slotElements.forEach((item, idx) => {
             let finalSkill = pendingChestUpgrades[idx];
             if (finalSkill === 'heal') {
@@ -749,12 +752,12 @@ function triggerChest() {
                 if (iconUrl) {
                     item.img.src = iconUrl;
                 } else {
-                    item.slot.innerHTML = `<span style="font-weight: bold;">${SKILL_DB[finalSkill]?.name.substring(0,3)}</span>`;
+                    item.slot.innerHTML = `<span style="font-weight: bold;">${SKILL_DB[finalSkill]?.name.substring(0, 3)}</span>`;
                 }
             }
             item.slot.classList.add('level-up');
         });
-        
+
         desc.innerHTML = `<strong>업그레이드 완료!</strong>`;
         claimBtn.style.display = 'block';
     }, 1500);
@@ -768,7 +771,7 @@ function claimChest() {
             player.skills[skillId] = (player.skills[skillId] || 0) + 1;
         }
     });
-    
+
     document.getElementById('chest-modal').classList.add('hidden');
     gameState = 'playing';
     lastTime = Date.now();
@@ -1159,8 +1162,8 @@ function update(dt) {
                 }
             }
             if (p.life <= 0) projectiles.splice(i, 1);
-        } else if (p.type === 'boss_c') {
-            // 보스의 C 투사체 — 플레이어에게 데미지
+        } else if (p.type === 'boss_c' || p.type === 'boss_f') {
+            // 보스의 C/F 투사체 — 플레이어에게 데미지
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             if (p.rotation !== undefined) p.rotation += 3 * dt;
@@ -1237,8 +1240,14 @@ function update(dt) {
 
     // === 강력한 보스 스폰 (5분 경과 시) ===
     if (!boss5mSpawned && gameTime >= BOSS_5M_SPAWN_TIME && !bossWarning && !boss) {
-        bossWarning = { timer: 3.0, phase: 'warning', type: 2 }; 
+        bossWarning = { timer: 3.0, phase: 'warning', type: 2 };
         boss5mSpawned = true;
+    }
+
+    // === 최강 보스 스폰 (15분 경과 시) ===
+    if (!boss15mSpawned && gameTime >= BOSS_15M_SPAWN_TIME && !bossWarning && !boss) {
+        bossWarning = { timer: 3.0, phase: 'warning', type: 3 };
+        boss15mSpawned = true;
     }
 
     // 경고 연출 처리
@@ -1246,27 +1255,30 @@ function update(dt) {
         bossWarning.timer -= dt;
         if (bossWarning.timer <= 0) {
             let is5m = bossWarning.type === 2;
+            let is15m = bossWarning.type === 3;
             // 경고 끝 → 보스 소환!
             let angle = Math.random() * Math.PI * 2;
             let dist = canvas.width / 2 + 200;
             boss = {
                 x: player.x + Math.cos(angle) * dist,
                 y: player.y + Math.sin(angle) * dist,
-                hp: is5m ? 5000 : 2000,
-                maxHp: is5m ? 5000 : 2000,
-                speed: is5m ? 65 : 50,
-                radius: is5m ? 60 : 50,
-                name: is5m ? 'Empowered Prof. C' : 'Prof. C',
+                hp: is15m ? 15000 : (is5m ? 5000 : 2000),
+                maxHp: is15m ? 15000 : (is5m ? 5000 : 2000),
+                speed: is15m ? 80 : (is5m ? 65 : 50),
+                radius: is15m ? 70 : (is5m ? 60 : 50),
+                name: is15m ? 'Ultimate Prof. F' : (is5m ? 'Empowered Prof. C' : 'Prof. C'),
                 dir: 1,
                 attackTimer: 0,
-                attackCooldown: is5m ? (2.0 / 1.5) : 2.0,   // 5분 보스는 1.5배 자주 분출
-                burstCount: is5m ? 16 : 12,        // 한 번에 발사 수 약간 증가
-                cDamage: is5m ? 15 : 10,           // 데미지 15
-                phase: 0               // 패턴 카운터
+                attackCooldown: is15m ? 0.5 : (is5m ? (2.0 / 1.5) : 2.0),
+                burstCount: is15m ? 1 : (is5m ? 16 : 12),
+                cDamage: is15m ? 20 : (is5m ? 15 : 10),
+                phase: 0,
+                bossType: is15m ? 'boss2' : 'boss1'
             };
             bossWarning = null;
         }
     }
+
 
     // === 보스 업데이트 ===
     if (boss) {
@@ -1292,29 +1304,51 @@ function update(dt) {
                 boss.y += (by / bDist) * boss.speed * dt;
             }
 
-            // 보스 공격: C 살포
+            // 보스 공격
             boss.attackTimer -= dt;
             if (boss.attackTimer <= 0) {
                 boss.attackTimer = boss.attackCooldown;
                 boss.phase++;
 
-                let count = boss.burstCount;
-                let offsetAngle = (boss.phase % 2) * (Math.PI / count); // 매번 약간 회전
-
-                for (let i = 0; i < count; i++) {
-                    let a = (Math.PI * 2 / count) * i + offsetAngle;
+                if (boss.bossType === 'boss2') {
+                    let bx = player.x - boss.x;
+                    let by = player.y - boss.y;
+                    let bDist = Math.sqrt(bx * bx + by * by);
+                    let vx = 0, vy = 0;
+                    if (bDist > 0) {
+                        vx = (bx / bDist) * 350; // 투사체 속도
+                        vy = (by / bDist) * 350;
+                    }
                     projectiles.push({
                         x: boss.x, y: boss.y,
-                        vx: Math.cos(a) * 180,
-                        vy: Math.sin(a) * 180,
-                        life: 3.0,
-                        type: 'boss_c',
-                        damage: boss.cDamage || 10,
-                        radius: 22,
+                        vx: vx,
+                        vy: vy,
+                        life: 4.0,
+                        type: 'boss_f',
+                        damage: boss.cDamage || 20,
+                        radius: 20,
                         rotation: Math.random() * Math.PI * 2
                     });
+                    spawnFloatingText(boss.x, boss.y - 60, 'F!!!', '#ef4444');
+                } else {
+                    let count = boss.burstCount;
+                    let offsetAngle = (boss.phase % 2) * (Math.PI / count); // 매번 약간 회전
+
+                    for (let i = 0; i < count; i++) {
+                        let a = (Math.PI * 2 / count) * i + offsetAngle;
+                        projectiles.push({
+                            x: boss.x, y: boss.y,
+                            vx: Math.cos(a) * 180,
+                            vy: Math.sin(a) * 180,
+                            life: 3.0,
+                            type: 'boss_c',
+                            damage: boss.cDamage || 10,
+                            radius: 22,
+                            rotation: Math.random() * Math.PI * 2
+                        });
+                    }
+                    spawnFloatingText(boss.x, boss.y - 60, 'C!  C!  C!', '#ef4444');
                 }
-                spawnFloatingText(boss.x, boss.y - 60, 'C!  C!  C!', '#ef4444');
             }
 
             // 보스 접촉 데미지 없음 (요청 반영)
@@ -1753,15 +1787,18 @@ function draw() {
         ctx.save();
         ctx.translate(boss.x, boss.y + bobY);
 
-        if (bossImg.complete && bossImg.naturalWidth !== 0) {
-            let bossSize = Math.min(120, boss.radius * 2.5);
+        let currentBossImg = boss.bossType === 'boss2' ? boss2Img : bossImg;
+        if (currentBossImg.complete && currentBossImg.naturalWidth !== 0) {
+            let bossSize = Math.min(boss.bossType === 'boss2' ? 140 : 120, boss.radius * 2.5);
             try {
-                if (boss.dir === 2) {
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(bossImg, bossSize / 2, -bossSize / 2, bossSize, bossSize);
-                } else {
-                    ctx.drawImage(bossImg, -bossSize / 2, -bossSize / 2, bossSize, bossSize);
+                let shouldFlip = (boss.dir === 2);
+                if (boss.bossType === 'boss2') {
+                    shouldFlip = !shouldFlip;
                 }
+                if (shouldFlip) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(currentBossImg, -bossSize / 2, -bossSize / 2, bossSize, bossSize);
             } catch (err) {
                 console.warn('Boss image draw failed, fallback to manual boss:', err);
                 drawManualBoss();
@@ -1772,7 +1809,7 @@ function draw() {
 
         function drawManualBoss() {
             // 보스 몸체 (교수님)
-            ctx.fillStyle = '#1e293b';
+            ctx.fillStyle = boss.bossType === 'boss2' ? '#3b0764' : '#1e293b';
             ctx.fillRect(-30, -15, 60, 50);
 
             // 머리
@@ -1816,11 +1853,11 @@ function draw() {
             ctx.lineTo(6, 5);
             ctx.fill();
 
-            // "C" 표시 (가운에)
+            // "C" or "F" 표시 (가운에)
             ctx.fillStyle = '#38bdf8';
             ctx.font = 'bold 24px Fira Code';
             ctx.textAlign = 'center';
-            ctx.fillText('C', 0, 28);
+            ctx.fillText(boss.bossType === 'boss2' ? 'F' : 'C', 0, 28);
         }
 
         ctx.restore();
@@ -1905,8 +1942,8 @@ function draw() {
                 ctx.fillText("Leak", 0, 3);
             }
             ctx.restore();
-        } else if (p.type === 'boss_c') {
-            // 보스의 C 투사체 그리기
+        } else if (p.type === 'boss_c' || p.type === 'boss_f') {
+            // 보스의 투사체 그리기
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rotation || 0);
@@ -1917,15 +1954,16 @@ function draw() {
             ctx.textBaseline = 'middle';
             ctx.lineWidth = 5;
             ctx.strokeStyle = '#0f172a';
-            ctx.strokeText('C', 0, 0);
+            let charLabel = p.type === 'boss_f' ? 'F' : 'C';
+            ctx.strokeText(charLabel, 0, 0);
 
             ctx.fillStyle = '#ef4444';
-            ctx.fillText('C', 0, 0);
+            ctx.fillText(charLabel, 0, 0);
 
             // 글로우 효과
             ctx.shadowColor = '#ef4444';
             ctx.shadowBlur = 10;
-            ctx.fillText('C', 0, 0);
+            ctx.fillText(charLabel, 0, 0);
             ctx.shadowBlur = 0;
 
             ctx.restore();
@@ -2035,12 +2073,12 @@ function draw() {
         ctx.globalAlpha = t.life;
         ctx.font = 'bold 16px Fira Code';
         ctx.textAlign = 'center';
-        
+
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
         ctx.lineJoin = 'round';
         ctx.strokeText(t.text, t.x, t.y);
-        
+
         ctx.fillStyle = t.color;
         ctx.fillText(t.text, t.x, t.y);
         ctx.globalAlpha = 1.0;
@@ -2067,7 +2105,8 @@ function draw() {
 
         ctx.fillStyle = `rgba(255, 255, 255, ${textAlpha * 0.8})`;
         ctx.font = 'bold 20px Fira Code';
-        ctx.fillText('교수님이 출현합니다...', canvas.width / 2, canvas.height / 2 + 20);
+        let warnMsg = bossWarning.type === 3 ? '올에푸가 나옵니다...' : '교수님이 출현합니다...';
+        ctx.fillText(warnMsg, canvas.width / 2, canvas.height / 2 + 20);
     }
 
     // === 보스 HP 바 (화면 상단 고정) ===
@@ -2076,27 +2115,28 @@ function draw() {
         let barW = canvas.width * 0.6;
         let barH = 12;
         let barX = (canvas.width - barW) / 2;
-        let barY = 50;
+        let barY = 110; // 50 -> 110 으로 내려서 타이머/경험치 바와 안 겹치게
 
         // 배경
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
 
-        // HP
-        ctx.fillStyle = '#ef4444';
+        // HP (더 진하고 강렬한 빨간색)
+        ctx.fillStyle = '#ff0000';
         ctx.fillRect(barX, barY, barW * Math.max(0, bHpRatio), barH);
 
         // 보스 이름
         ctx.font = 'bold 14px Fira Code';
         ctx.textAlign = 'center';
-        
+
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
         ctx.lineJoin = 'round';
-        ctx.strokeText('🎓 Prof. C — C 프로그래밍 교수', canvas.width / 2, barY - 8);
-        
+        let bn = boss.bossType === 'boss2' ? '🎓 Prof. F — 무자비한 올에푸' : '🎓 Prof. C — C언어 교수';
+        ctx.strokeText(bn, canvas.width / 2, barY - 8);
+
         ctx.fillStyle = '#fbbf24';
-        ctx.fillText('🎓 Prof. C — C 프로그래밍 교수', canvas.width / 2, barY - 8);
+        ctx.fillText(bn, canvas.width / 2, barY - 8);
     }
 }
 
