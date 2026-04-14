@@ -467,8 +467,10 @@ function spawnRareMapItem() {
 // === 보스 시스템 ===
 let boss = null;           // 현재 보스 (null이면 없음)
 let bossWarning = null;    // 경고 연출 상태
-let bossSpawned = false;   // 보스가 이미 소환되었는지
+let bossSpawned = false;   // 2분 보스가 이미 소환되었는지
+let boss5mSpawned = false; // 5분 보스가 소환되었는지
 const BOSS_SPAWN_TIME = 120; // 10초
+const BOSS_5M_SPAWN_TIME = 300; // 5분
 
 // 스킬 DB
 const SKILL_DB = {
@@ -1192,12 +1194,22 @@ function update(dt) {
         let type = ENEMY_TYPES[Math.min(ENEMY_TYPES.length - 1, Math.floor(Math.random() * (gameTime / 30 + 1)))];
         let angle = Math.random() * Math.PI * 2;
         let dist = canvas.width / 2 + 100;
+
+        let hpMult = 1 + (gameTime / 60);
+        let speedMult = 1;
+
+        if (gameTime >= 600) {
+            let over10m = Math.floor((gameTime - 600) / 60) + 1;
+            hpMult *= Math.pow(1.1, over10m);
+            speedMult *= Math.pow(1.05, over10m);
+        }
+
         enemies.push({
             x: player.x + Math.cos(angle) * dist,
             y: player.y + Math.sin(angle) * dist,
-            hp: type.hp * (1 + (gameTime / 60)), // 시간이 갈수록 체력 증가
-            maxHp: type.hp * (1 + (gameTime / 60)),
-            speed: type.speed * (0.8 + Math.random() * 0.4),
+            hp: type.hp * hpMult,
+            maxHp: type.hp * hpMult,
+            speed: type.speed * (0.8 + Math.random() * 0.4) * speedMult,
             radius: type.radius,
             color: type.color,
             name: type.name,
@@ -1219,29 +1231,37 @@ function update(dt) {
     // === 보스 스폰 (2분 경과 시) ===
     if (!bossSpawned && gameTime >= BOSS_SPAWN_TIME && !bossWarning) {
         // 경고 연출 시작
-        bossWarning = { timer: 3.0, phase: 'warning' }; // 3초간 경고
+        bossWarning = { timer: 3.0, phase: 'warning', type: 1 }; // 3초간 경고
         bossSpawned = true;
+    }
+
+    // === 강력한 보스 스폰 (5분 경과 시) ===
+    if (!boss5mSpawned && gameTime >= BOSS_5M_SPAWN_TIME && !bossWarning && !boss) {
+        bossWarning = { timer: 3.0, phase: 'warning', type: 2 }; 
+        boss5mSpawned = true;
     }
 
     // 경고 연출 처리
     if (bossWarning) {
         bossWarning.timer -= dt;
         if (bossWarning.timer <= 0) {
+            let is5m = bossWarning.type === 2;
             // 경고 끝 → 보스 소환!
             let angle = Math.random() * Math.PI * 2;
             let dist = canvas.width / 2 + 200;
             boss = {
                 x: player.x + Math.cos(angle) * dist,
                 y: player.y + Math.sin(angle) * dist,
-                hp: 2000,
-                maxHp: 2000,
-                speed: 50,
-                radius: 50,
-                name: 'Prof. C',
+                hp: is5m ? 5000 : 2000,
+                maxHp: is5m ? 5000 : 2000,
+                speed: is5m ? 65 : 50,
+                radius: is5m ? 60 : 50,
+                name: is5m ? 'Empowered Prof. C' : 'Prof. C',
                 dir: 1,
                 attackTimer: 0,
-                attackCooldown: 2.0,   // 2초마다 C 살포
-                burstCount: 12,        // 한 번에 12 방향
+                attackCooldown: is5m ? (2.0 / 1.5) : 2.0,   // 5분 보스는 1.5배 자주 분출
+                burstCount: is5m ? 16 : 12,        // 한 번에 발사 수 약간 증가
+                cDamage: is5m ? 15 : 10,           // 데미지 15
                 phase: 0               // 패턴 카운터
             };
             bossWarning = null;
@@ -1289,7 +1309,7 @@ function update(dt) {
                         vy: Math.sin(a) * 180,
                         life: 3.0,
                         type: 'boss_c',
-                        damage: 10,
+                        damage: boss.cDamage || 10,
                         radius: 22,
                         rotation: Math.random() * Math.PI * 2
                     });
