@@ -170,22 +170,26 @@ const bossImg = new Image(); bossImg.src = 'boss_1.png';
 const ITEM_ICON_IMAGES = {
     energy_drink: new Image(),
     bomb: new Image(),
-    magnet: new Image()
+    magnet: new Image(),
+    chest: new Image()
 };
 ITEM_ICON_IMAGES.energy_drink.src = 'energy.png';
 ITEM_ICON_IMAGES.bomb.src = 'bomb.png';
 ITEM_ICON_IMAGES.magnet.src = 'magnet.png';
+ITEM_ICON_IMAGES.chest.src = 'giftbox.png';
 
 const SKILL_ICON_IMAGES = {
     print: new Image(),
     git_push: new Image(),
     memory_leak: new Image(),
-    round_robin: new Image()
+    round_robin: new Image(),
+    c_pointer: new Image()
 };
 SKILL_ICON_IMAGES.print.src = 'sk_print.png';
 SKILL_ICON_IMAGES.git_push.src = 'sk_commit.png';
 SKILL_ICON_IMAGES.memory_leak.src = 'sk_code.png';
 SKILL_ICON_IMAGES.round_robin.src = 'sk_round.png';
+SKILL_ICON_IMAGES.c_pointer.src = 'sk_pointer.png';
 
 const SKILL_SELECT_IMAGES = {
     print: new Image(),
@@ -329,6 +333,9 @@ function resetJoystick() {
 const gameViewport = document.getElementById('game-viewport');
 
 gameViewport.addEventListener('touchstart', e => {
+    // 모바일 일시정지 버튼 등은 터치 이벤트 기본 동작(클릭 발생)을 허용하도록 예외 처리
+    if (e.target.closest('button')) return;
+
     if (gameState !== 'playing') return;
     e.preventDefault();
 
@@ -419,7 +426,7 @@ const player = {
     y: 0,
     speed: 150, // 픽셀/초
     maxHp: 100,
-    hp: 1,
+    hp: 100,
     level: 1,
     exp: 0,
     expToNext: 10,
@@ -432,7 +439,10 @@ const player = {
 
 // 엔티티 관리
 let enemies = [];
-let expGems = [];
+// 시작 시 플레이어 근처에 보물상자 하나 스폰
+let expGems = [
+    { x: 200, y: -200, type: 'chest' }
+];
 let projectiles = [];
 let damageTexts = [];
 let weaponsState = {
@@ -543,6 +553,10 @@ function triggerLevelUp() {
     // 가능한 스킬 풀 작성
     let pool = [];
 
+    // 보유 스킬 칸 체크 (8칸 제한)
+    let activeSkillCount = Object.keys(player.skills).filter(k => player.skills[k] > 0).length;
+    let isFull = activeSkillCount >= 8;
+
     // 진화 조건 체크
     if (player.skills['print'] === 5 && player.skills['keyboard'] > 0 && !player.skills['auto_test']) {
         pool.push(SKILL_DB['auto_test']);
@@ -554,8 +568,18 @@ function triggerLevelUp() {
     // 일반 스킬 추가
     Object.values(SKILL_DB).forEach(s => {
         if (s.type === 'evolution') return; // 진화는 조건부로만
+
+        // 진화 완료 시 하위 조합 스킬들이 풀에 다시 등장하지 않도록 예외 처리
+        if ((player.skills['auto_test'] || 0) > 0 && (s.id === 'print' || s.id === 'keyboard')) return;
+        if ((player.skills['context_switch'] || 0) > 0 && (s.id === 'round_robin' || s.id === 'caffeine')) return;
+
         let currentLvl = player.skills[s.id] || 0;
-        if (currentLvl < s.max) pool.push(s);
+        if (currentLvl < s.max) {
+            // 인벤토리가 꽉 찼다면, 이미 보유 중인 스킬만 풀에 포함
+            if (!isFull || currentLvl > 0) {
+                pool.push(s);
+            }
+        }
     });
 
     // 랜덤으로 3개(이하) 뽑기
@@ -598,11 +622,152 @@ function triggerLevelUp() {
             gameState = 'playing';
             lastTime = Date.now(); // 시간 보상
             updateHudText();
+            updateSkillHud(); // ⬅️ 스킬 선택 후 HUD 업데이트
         };
         optionsContainer.appendChild(btn);
     });
 
     modal.classList.remove('hidden');
+}
+
+// 스킬 인벤토리 HUD 업데이트 함수
+function updateSkillHud() {
+    const inv = document.getElementById('skill-inventory');
+    if (!inv) return;
+    inv.innerHTML = '';
+
+    // 현재 보유 중인 스킬 리스트 (레벨 1 이상)
+    let activeSkills = Object.keys(player.skills).filter(id => player.skills[id] > 0);
+
+    // UI에 총 8칸 (4열 2행) 렌더링
+    for (let i = 0; i < 8; i++) {
+        let slot = document.createElement('div');
+        slot.className = 'skill-slot';
+
+        if (i < activeSkills.length) {
+            let sId = activeSkills[i];
+            let lvl = player.skills[sId];
+            let iconUrl = getSkillIconUrl(sId);
+
+            if (iconUrl) {
+                slot.innerHTML = `<img src="${iconUrl}" alt="${sId}"><div class="lvl-badge">${lvl}</div>`;
+            } else {
+                slot.innerHTML = `<span style="font-size: 0.6rem; color: #fff;">${sId.substring(0, 3)}</span><div class="lvl-badge">${lvl}</div>`;
+            }
+        }
+        inv.appendChild(slot);
+    }
+}
+
+// 초기 로드 시 HUD 생성
+window.addEventListener('DOMContentLoaded', () => {
+    updateSkillHud();
+});
+
+// === 상자 스킬 슬롯머신 로직 ===
+let pendingChestUpgrades = [];
+
+function triggerChest() {
+    gameState = 'chest';
+    const modal = document.getElementById('chest-modal');
+    const slotsContainer = document.getElementById('chest-slots');
+    const claimBtn = document.getElementById('chest-claim-btn');
+    const desc = document.getElementById('chest-desc');
+    
+    slotsContainer.innerHTML = '';
+    claimBtn.style.display = 'none';
+    desc.innerText = '슬롯을 돌려 보유 중인 아이템을 무작위로 업그레이드합니다!';
+
+    // 보유 중인 스킬 중 만렙이 아닌 스킬만 필터링
+    let upgradeableSkills = Object.keys(player.skills).filter(k => {
+        let maxLvl = SKILL_DB[k]?.max || 5;
+        // 진화 스킬(1렙 만렙) 등은 제외
+        return player.skills[k] > 0 && player.skills[k] < maxLvl;
+    });
+
+    let upgradeCount = 1;
+    let rand = Math.random();
+    if (rand < 0.2) upgradeCount = 3;         // 20%
+    else if (rand < 0.5) upgradeCount = 2;    // 30%
+                                              // 나머지 50%는 1개
+
+    if (upgradeableSkills.length === 0) {
+        // 업그레이드 할 스킬이 없는 경우 -> 핫식스로 대체
+        upgradeCount = 1;
+        pendingChestUpgrades = ['heal'];
+    } else {
+        // 실제 가능한 개수만큼만 선택
+        upgradeCount = Math.min(upgradeCount, upgradeableSkills.length);
+        pendingChestUpgrades = [];
+        // 후보 셔플
+        let shuffled = [...upgradeableSkills].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < upgradeCount; i++) {
+            pendingChestUpgrades.push(shuffled[i]);
+        }
+    }
+
+    // 슬롯 UI 생성
+    let slotElements = [];
+    for (let i = 0; i < upgradeCount; i++) {
+        let slot = document.createElement('div');
+        slot.className = 'chest-slot';
+        slot.innerHTML = `<img src="" alt="spinning" style="display:none;">`;
+        let img = slot.querySelector('img');
+        slotsContainer.appendChild(slot);
+        slotElements.push({ slot: slot, img: img });
+    }
+    
+    modal.classList.remove('hidden');
+
+    // 슬롯머신 애니메이션
+    let allIcons = Object.values(SKILL_DB).map(s => getSkillIconUrl(s.id)).filter(url => url);
+    if (allIcons.length === 0) allIcons = ['asset/skill_print.png', 'asset/skill_keyboard.png'];
+    
+    let spinInterval = setInterval(() => {
+        slotElements.forEach(item => {
+            item.img.style.display = 'block';
+            item.img.src = allIcons[Math.floor(Math.random() * allIcons.length)];
+        });
+    }, 100);
+
+    // 1.5초 후 멈추고 보상 확정
+    setTimeout(() => {
+        clearInterval(spinInterval);
+        
+        slotElements.forEach((item, idx) => {
+            let finalSkill = pendingChestUpgrades[idx];
+            if (finalSkill === 'heal') {
+                item.slot.innerHTML = '<span style="font-size: 2rem;">⚡</span>';
+            } else {
+                let iconUrl = getSkillIconUrl(finalSkill);
+                if (iconUrl) {
+                    item.img.src = iconUrl;
+                } else {
+                    item.slot.innerHTML = `<span style="font-weight: bold;">${SKILL_DB[finalSkill]?.name.substring(0,3)}</span>`;
+                }
+            }
+            item.slot.classList.add('level-up');
+        });
+        
+        desc.innerHTML = `<strong>업그레이드 완료!</strong>`;
+        claimBtn.style.display = 'block';
+    }, 1500);
+}
+
+function claimChest() {
+    pendingChestUpgrades.forEach(skillId => {
+        if (skillId === 'heal') {
+            player.hp = Math.min(player.maxHp, player.hp + 50);
+        } else {
+            player.skills[skillId] = (player.skills[skillId] || 0) + 1;
+        }
+    });
+    
+    document.getElementById('chest-modal').classList.add('hidden');
+    gameState = 'playing';
+    lastTime = Date.now();
+    updateHudText();
+    updateSkillHud();
 }
 
 // === 업데이트 로직 ===
@@ -1083,13 +1248,13 @@ function update(dt) {
     if (boss) {
         // 보스 사망 체크
         if (boss.hp <= 0) {
-            // 보스 처치 보상: 대량 경험치 + 족보
+            // 보스 처치 보상: 대량 경험치 + 확정 상자 드랍
             for (let i = 0; i < 20; i++) {
                 let ox = boss.x + (Math.random() - 0.5) * 80;
                 let oy = boss.y + (Math.random() - 0.5) * 80;
                 expGems.push({ x: ox, y: oy, val: 10, type: 'exp' });
             }
-            expGems.push({ x: boss.x, y: boss.y, type: 'cheat_sheet' });
+            expGems.push({ x: boss.x, y: boss.y, type: 'chest' });
             spawnFloatingText(boss.x, boss.y - 40, '🎓 교수님 격퇴!', '#fbbf24');
             boss = null;
         } else {
@@ -1128,22 +1293,8 @@ function update(dt) {
                 spawnFloatingText(boss.x, boss.y - 60, 'C!  C!  C!', '#ef4444');
             }
 
-            // 보스 접촉 데미지
-            if (bDist < boss.radius + 15) {
-                player.hp -= 20 * dt;
-                if (player.hp <= 0) {
-                    gameState = 'gameover';
-                    document.getElementById('final-time').innerText = getFormattedTime(gameTime);
-                    document.getElementById('gameover-modal').classList.remove('hidden');
-                    const ni = document.getElementById('nickname-input');
-                    const sb = document.getElementById('submit-score-btn');
-                    if (ni) { ni.disabled = false; ni.value = ''; }
-                    if (sb) { sb.disabled = false; sb.textContent = '기록 등록'; }
-                    const ss = document.getElementById('submit-status');
-                    if (ss) { ss.textContent = ''; ss.className = 'submit-status'; }
-                    setTimeout(() => { if (ni) ni.focus(); }, 300);
-                }
-            }
+            // 보스 접촉 데미지 없음 (요청 반영)
+            // if (bDist < boss.radius + 15) { ... }
         }
     }
 
@@ -1154,8 +1305,8 @@ function update(dt) {
         if (en.hp <= 0) {
             // 사망 및 드랍 처리
             let rnd = Math.random();
-            if (rnd < 0.005) { // 0.5% 확률 족보
-                expGems.push({ x: en.x, y: en.y, type: 'cheat_sheet' });
+            if (rnd < 0.005) { // 0.5% 확률로 상자 드랍 (기존 족보 확률 대체)
+                expGems.push({ x: en.x, y: en.y, type: 'chest' });
             } else {
                 expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
             }
@@ -1269,9 +1420,9 @@ function update(dt) {
             if (g.type === 'energy_drink') {
                 player.hp = Math.min(player.maxHp, player.hp + 30);
                 spawnFloatingText(player.x, player.y - 30, "+30 HP", '#4ade80');
-            } else if (g.type === 'cheat_sheet') {
-                triggerLevelUp();
-                spawnFloatingText(player.x, player.y - 30, "족보 Get!", '#f472b6');
+            } else if (g.type === 'chest') {
+                triggerChest();
+                spawnFloatingText(player.x, player.y - 30, "🎁 상자 획득!", '#f59e0b');
             } else if (g.type === 'bomb') {
                 // 💣 폭탄: 화면 내 모든 적 처치 + 경험치 드랍
                 spawnFloatingText(player.x, player.y - 40, "💣 BOOM!", '#fbbf24');
@@ -1393,13 +1544,22 @@ function draw() {
                 ctx.textAlign = 'center';
                 ctx.fillText("⚡", g.x, g.y + 2);
             }
-        } else if (g.type === 'cheat_sheet') {
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(g.x - 8, g.y - 12, 16, 20);
-            ctx.fillStyle = '#ef4444';
-            ctx.font = 'bold 12px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("A+", g.x, g.y + 4);
+        } else if (g.type === 'chest') {
+            let pulse = 1 + Math.sin(gameTime * 4) * 0.1;
+            ctx.save();
+            ctx.translate(g.x, g.y);
+            ctx.scale(pulse, pulse);
+            if (ITEM_ICON_IMAGES.chest.complete && ITEM_ICON_IMAGES.chest.naturalWidth !== 0) {
+                ctx.drawImage(ITEM_ICON_IMAGES.chest, -24, -24, 48, 48); // 1.5배 확대
+            } else {
+                ctx.font = '48px "Apple Color Emoji", "Segoe UI Emoji", Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(245, 158, 11, 0.8)';
+                ctx.shadowBlur = 10;
+                ctx.fillText("🎁", 0, 0);
+            }
+            ctx.restore();
         } else if (g.type === 'bomb') {
             const img = ITEM_ICON_IMAGES.bomb;
             const size = 40;
@@ -1672,11 +1832,16 @@ function draw() {
         } else if (p.type === 'c_pointer') {
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate(Math.atan2(p.vy, p.vx));
-            ctx.fillStyle = '#10b981';
-            ctx.font = 'bold 18px Fira Code';
-            ctx.textAlign = 'center';
-            ctx.fillText("->*", 0, 5);
+            // 왼쪽 대각선(Top-Left) 방향이 기본인 이미지를 정방향으로 보충 회전 (+135도)
+            ctx.rotate(Math.atan2(p.vy, p.vx) + Math.PI * 0.75);
+            if (SKILL_ICON_IMAGES.c_pointer.complete && SKILL_ICON_IMAGES.c_pointer.naturalWidth !== 0) {
+                ctx.drawImage(SKILL_ICON_IMAGES.c_pointer, -40, -40, 80, 80); // 1.5배 축소 (120 -> 80)
+            } else {
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 18px Fira Code';
+                ctx.textAlign = 'center';
+                ctx.fillText("->*", 0, 5);
+            }
             ctx.restore();
         } else if (p.type === 'git_push') {
             ctx.save();
