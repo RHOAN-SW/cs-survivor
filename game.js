@@ -473,7 +473,7 @@ let boss5mSpawned = false; // 5분 보스가 소환되었는지
 let boss15mSpawned = false;// 15분 보스가 소환되었는지
 const BOSS_SPAWN_TIME = 120; // 10초
 const BOSS_5M_SPAWN_TIME = 300; // 5분
-const BOSS_15M_SPAWN_TIME = 10; // 10초 (테스트용)
+const BOSS_15M_SPAWN_TIME = 900; // 15분
 
 // 스킬 DB
 const SKILL_DB = {
