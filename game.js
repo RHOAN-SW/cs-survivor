@@ -593,7 +593,7 @@ function triggerLevelUp() {
 
     if (choices.length === 0) {
         // 더이상 올릴 스킬이 없으면 체력이나 돈 보상
-        choices.push({ id: 'heal', name: '핫식스 (회복)', desc: '체력을 30 회복합니다.', max: 1 });
+        choices.push({ id: 'heal', name: '핫식스 (회복)', desc: '체력을 30 회복하고 이동속도가 15 증가합니다.', max: 1 });
     }
 
     choices.forEach(c => {
@@ -617,6 +617,7 @@ function triggerLevelUp() {
         btn.onclick = () => {
             if (c.id === 'heal') {
                 player.hp = Math.min(player.maxHp, player.hp + 30);
+                player.speed += 15;
             } else {
                 player.skills[c.id] = (player.skills[c.id] || 0) + 1;
                 // 진화 시 원본무기 숨기기 위함 처리
@@ -767,6 +768,7 @@ function claimChest() {
     pendingChestUpgrades.forEach(skillId => {
         if (skillId === 'heal') {
             player.hp = Math.min(player.maxHp, player.hp + 50);
+            player.speed += 15;
         } else {
             player.skills[skillId] = (player.skills[skillId] || 0) + 1;
         }
@@ -1489,7 +1491,8 @@ function update(dt) {
         if (dist < 20) {
             if (g.type === 'energy_drink') {
                 player.hp = Math.min(player.maxHp, player.hp + 30);
-                spawnFloatingText(player.x, player.y - 30, "+30 HP", '#4ade80');
+                player.speed += 15;
+                spawnFloatingText(player.x, player.y - 30, "+30 HP / +15 SPD", '#4ade80');
             } else if (g.type === 'chest') {
                 triggerChest();
                 spawnFloatingText(player.x, player.y - 30, "🎁 상자 획득!", '#f59e0b');
