@@ -453,7 +453,7 @@ let weaponsState = {
     gitpushTimer: 0,
     memoryleakTimer: 0
 };
-let rareItemTimer = 10 + Math.random() * 15;
+let rareItemTimer = 5 + Math.random() * 10;
 
 function spawnRareMapItem() {
     const types = ['energy_drink', 'bomb', 'magnet'];
@@ -462,7 +462,7 @@ function spawnRareMapItem() {
     const x = player.x - canvas.width / 2 + margin + Math.random() * (canvas.width - margin * 2);
     const y = player.y - canvas.height / 2 + margin + Math.random() * (canvas.height - margin * 2);
     expGems.push({ x, y, type });
-    rareItemTimer = 10 + Math.random() * 15;
+    rareItemTimer = 10 + Math.random() * 5; // 약 10~15초 주기
 }
 
 // === 보스 시스템 ===
@@ -538,7 +538,7 @@ function spawnFloatingText(x, y, text, color) {
 }
 
 function addExp(amount) {
-    player.exp += amount;
+    player.exp += amount * 1.1; // 경험치 획득량 상향
     if (player.exp >= player.expToNext) {
         player.exp -= player.expToNext;
         player.level++;
@@ -867,17 +867,19 @@ function update(dt) {
         let pLvl = player.skills['print'];
 
         if (isEvo || pLvl > 0) {
-            let count = isEvo ? 8 : (pLvl === 5 ? 3 : (pLvl >= 3 ? 2 : 1));
-            weaponsState.printTimer = (isEvo ? 0.3 : 1.2 - (pLvl * 0.1)) * coolMult;
+            let count = isEvo ? 4 : (pLvl === 5 ? 3 : (pLvl >= 3 ? 2 : 1));
+            weaponsState.printTimer = (isEvo ? 0.6 : 1.2 - (pLvl * 0.1)) * coolMult;
 
             if (isEvo) {
                 // 사방으로 발사
-                for (let i = 0; i < count; i++) {
-                    let a = (Math.PI * 2 / count) * i + (gameTime * 5); // 회전하며 난사
+                let evoCount = 6;
+                weaponsState.printTimer = 0.4 * coolMult;
+                for (let i = 0; i < evoCount; i++) {
+                    let a = (Math.PI * 2 / evoCount) * i + (gameTime * 5); // 회전하며 난사
                     projectiles.push({
                         x: player.x, y: player.y,
-                        vx: Math.cos(a) * 300, vy: Math.sin(a) * 300,
-                        life: 1.5, type: 'print', damage: Math.round(15 * 1.5)
+                        vx: Math.cos(a) * 350, vy: Math.sin(a) * 350,
+                        life: 1.5, type: 'print', damage: Math.round(25 * 1.5)
                     });
                 }
             } else {
@@ -912,7 +914,7 @@ function update(dt) {
 
     if (rrLvl > 0 || isRREvo) {
         let count = isRREvo ? 5 : (1 + rrLvl);
-        let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
+        let rrSpeed = isRREvo ? 3.5 : 2 + (rrLvl * 0.2);
         let radius = 80 + (rrLvl * 10);
         let damage = isRREvo ? Math.round(40 * 1.5) : Math.round((15 + (rrLvl * 5)) * 1.5);
 
@@ -1191,16 +1193,26 @@ function update(dt) {
         }
     }
 
-    // 적 스폰
-    let spawnRate = Math.max(0.1, 1.0 - (gameTime / 60) * 0.5); // 점점 빠르게
-    if (frameCount % Math.floor(120 * spawnRate) === 0) {
+    // 적 스폰 (밀도 상향)
+    let spawnRate = Math.max(0.1, 1.0 - (gameTime / 60) * 0.5); 
+    if (frameCount % Math.floor(80 * spawnRate) === 0) {
         let type = ENEMY_TYPES[Math.min(ENEMY_TYPES.length - 1, Math.floor(Math.random() * (gameTime / 30 + 1)))];
         let angle = Math.random() * Math.PI * 2;
         let dist = canvas.width / 2 + 100;
 
-        let hpMult = 1 + (gameTime / 60);
+        let hpMult = 1;
         let speedMult = 1;
 
+        // 0~3분: 분당 10%씩 기초 증가
+        hpMult += Math.min(3, gameTime / 60) * 0.1;
+
+        // 3분 ~ 10분: 매 분 5%씩 추가 증가 (요청 사항)
+        if (gameTime >= 180) {
+            let midTimeMinutes = Math.min(7, Math.floor((gameTime - 180) / 60) + 1);
+            hpMult += midTimeMinutes * 0.05;
+        }
+
+        // 10분 이후: 매 분 10%씩 복리 증가 (기존 로직 유지)
         if (gameTime >= 600) {
             let over10m = Math.floor((gameTime - 600) / 60) + 1;
             hpMult *= Math.pow(1.1, over10m);
