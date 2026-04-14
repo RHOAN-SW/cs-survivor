@@ -358,9 +358,17 @@ body {
 
 .panel h2 {
     margin-top: 0;
-    color: #fbbf24;
+    color: #ffffff;
     font-size: 1.8rem;
-    text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    font-weight: 900;
+    text-shadow: 
+        -2px -2px 0 #111827, 
+         2px -2px 0 #111827, 
+        -2px  2px 0 #111827, 
+         2px  2px 0 #111827,
+         0    4px 0 #111827,
+         0    8px 12px rgba(0,0,0,0.4);
+    letter-spacing: 1px;
 }
 
 .gameover-panel {
@@ -598,8 +606,14 @@ body {
 #leaderboard-header h2 {
     font-size: 1.4rem;
     font-weight: 900;
-    color: #f59e0b;
-    text-shadow: 1px 1px 0 #111827;
+    color: #ffffff;
+    text-shadow: 
+        -2px -2px 0 #111827, 
+         2px -2px 0 #111827, 
+        -2px  2px 0 #111827, 
+         2px  2px 0 #111827,
+         0    3px 0 #111827;
+    letter-spacing: 1px;
 }
 
 #refresh-leaderboard-btn {

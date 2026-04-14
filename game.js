@@ -1557,16 +1557,16 @@ function draw() {
 
         if (g.type === 'energy_drink') {
             const img = ITEM_ICON_IMAGES.energy_drink;
-            const size = 40;
+            const size = 60; // 1.5배 (기존 40)
             if (img.complete && img.naturalWidth !== 0) {
                 ctx.drawImage(img, g.x - size / 2, g.y - size / 2, size, size);
             } else {
                 ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(g.x - 10, g.y - 10, 20, 20);
+                ctx.fillRect(g.x - 15, g.y - 15, 30, 30);
                 ctx.fillStyle = '#fde047';
-                ctx.font = '10px Fira Code';
+                ctx.font = '15px Fira Code';
                 ctx.textAlign = 'center';
-                ctx.fillText("⚡", g.x, g.y + 2);
+                ctx.fillText("⚡", g.x, g.y + 5);
             }
         } else if (g.type === 'chest') {
             let pulse = 1 + Math.sin(gameTime * 4) * 0.1;
@@ -2032,10 +2032,16 @@ function draw() {
 
     // 데미지 텍스트
     damageTexts.forEach(t => {
-        ctx.fillStyle = t.color;
         ctx.globalAlpha = t.life;
         ctx.font = 'bold 16px Fira Code';
         ctx.textAlign = 'center';
+        
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(t.text, t.x, t.y);
+        
+        ctx.fillStyle = t.color;
         ctx.fillText(t.text, t.x, t.y);
         ctx.globalAlpha = 1.0;
     });
@@ -2081,9 +2087,15 @@ function draw() {
         ctx.fillRect(barX, barY, barW * Math.max(0, bHpRatio), barH);
 
         // 보스 이름
-        ctx.fillStyle = '#fbbf24';
         ctx.font = 'bold 14px Fira Code';
         ctx.textAlign = 'center';
+        
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeText('🎓 Prof. C — C 프로그래밍 교수', canvas.width / 2, barY - 8);
+        
+        ctx.fillStyle = '#fbbf24';
         ctx.fillText('🎓 Prof. C — C 프로그래밍 교수', canvas.width / 2, barY - 8);
     }
 }
