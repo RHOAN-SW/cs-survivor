@@ -520,9 +520,9 @@ const SKILL_DB = {
 };
 
 const ENEMY_TYPES = [
-    { name: 'NullPntr', hp: 10, speed: 120, exp: 1, color: '#fca5a5', radius: 25, img: mon1Img },
-    { name: 'SegFault', hp: 25, speed: 90, exp: 2, color: '#c084fc', radius: 30, img: mon2Img },
-    { name: '404', hp: 40, speed: 70, exp: 3, color: '#fb923c', radius: 45, img: mon3Img }
+    { name: 'NullPntr', hp: 10, speed: 120, exp: 3, color: '#fca5a5', radius: 25, img: mon1Img },
+    { name: 'SegFault', hp: 25, speed: 90, exp: 6, color: '#c084fc', radius: 30, img: mon2Img },
+    { name: '404', hp: 40, speed: 70, exp: 9, color: '#fb923c', radius: 45, img: mon3Img }
 ];
 
 // 초기 스킬 제공
@@ -542,7 +542,7 @@ function addExp(amount) {
     if (player.exp >= player.expToNext) {
         player.exp -= player.expToNext;
         player.level++;
-        player.expToNext = Math.floor(player.expToNext * 1.5);
+        player.expToNext = Math.floor(player.expToNext * 1.2);
         triggerLevelUp();
     }
     updateHudText();
@@ -1193,7 +1193,7 @@ function update(dt) {
 
     // 적 스폰
     let spawnRate = Math.max(0.1, 1.0 - (gameTime / 60) * 0.5); // 점점 빠르게
-    if (frameCount % Math.floor(60 * spawnRate) === 0) {
+    if (frameCount % Math.floor(120 * spawnRate) === 0) {
         let type = ENEMY_TYPES[Math.min(ENEMY_TYPES.length - 1, Math.floor(Math.random() * (gameTime / 30 + 1)))];
         let angle = Math.random() * Math.PI * 2;
         let dist = canvas.width / 2 + 100;
