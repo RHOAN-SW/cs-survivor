@@ -18,6 +18,24 @@ function resizeCanvas() {
 }
 resizeCanvas();
 
+const colorSampleCanvas = document.createElement('canvas');
+const colorSampleCtx = colorSampleCanvas.getContext('2d');
+
+function getDominantImageColor(img, fallbackColor) {
+    if (!img || !img.complete || img.naturalWidth === 0 || !colorSampleCtx) {
+        return fallbackColor;
+    }
+    colorSampleCanvas.width = 1;
+    colorSampleCanvas.height = 1;
+    colorSampleCtx.clearRect(0, 0, 1, 1);
+    colorSampleCtx.drawImage(img, 0, 0, 1, 1);
+    const data = colorSampleCtx.getImageData(0, 0, 1, 1).data;
+    if (data[3] === 0) {
+        return fallbackColor;
+    }
+    return `rgb(${data[0]}, ${data[1]}, ${data[2]})`;
+}
+
 window.addEventListener('resize', resizeCanvas);
 
 // ============================
@@ -223,12 +241,14 @@ let gameState = 'playing'; // playing, levelup, gameover, paused
 let gameTime = 0;
 let lastTime = Date.now();
 let frameCount = 0;
+let playerHitFlash = 0;
 
 const keys = {};
 
 window.togglePause = function () {
     if (gameState === 'playing') {
         gameState = 'paused';
+        updatePauseReport();
         document.getElementById('pause-modal').classList.remove('hidden');
     } else if (gameState === 'paused') {
         gameState = 'playing';
@@ -440,19 +460,67 @@ const player = {
 
 // 엔티티 관리
 let enemies = [];
-// 시작 시 플레이어 근처에 보물상자 하나 스폰
-let expGems = [
-    { x: 200, y: -200, type: 'chest' }
-];
+let expGems = [];
 let projectiles = [];
+let deathParticles = [];
 let damageTexts = [];
 let weaponsState = {
     printTimer: 0,
     stackTimer: 0,
     cpointerTimer: 0,
     gitpushTimer: 0,
-    memoryleakTimer: 0
+    memoryleakTimer: 0,
+    roundRobin: {
+        phase: 'out',
+        angle: 0,
+        progress: 0,
+        hiddenTimer: 0
+    }
 };
+let damageStats = {
+    print: 0,
+    stack_overflow: 0,
+    c_pointer: 0,
+    git_push: 0,
+    memory_leak: 0,
+    round_robin: 0
+};
+
+function recordDamage(sourceId, amount) {
+    if (!damageStats[sourceId]) damageStats[sourceId] = 0;
+    damageStats[sourceId] += amount;
+}
+
+function getFormattedDamageReport() {
+    let entries = Object.entries(damageStats)
+        .filter(([key, value]) => value > 0)
+        .sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+        return '<p>아직 데미지 기록이 없습니다.</p>';
+    }
+
+    const total = entries.reduce((sum, [, value]) => sum + value, 0);
+    let topEntry = entries[0];
+    let topName = SKILL_DB[topEntry[0]] ? SKILL_DB[topEntry[0]].name : topEntry[0];
+    let report = `<p><strong>가장 많이 기여한 아이템: ${topName}</strong> (${topEntry[1]} 데미지)</p>`;
+    report += '<ul style="padding-left:18px; margin:8px 0;">';
+    entries.slice(0, 5).forEach(([key, value]) => {
+        let name = SKILL_DB[key] ? SKILL_DB[key].name : key;
+        let percent = total > 0 ? Math.round((value / total) * 100) : 0;
+        report += `<li>${name}: ${value} (${percent}%)</li>`;
+    });
+    report += '</ul>';
+    return report;
+}
+
+function updatePauseReport() {
+    const report = document.getElementById('pause-report');
+    if (report) {
+        report.innerHTML = getFormattedDamageReport();
+    }
+}
+
 let rareItemTimer = 5 + Math.random() * 10;
 
 function spawnRareMapItem() {
@@ -533,8 +601,30 @@ function getDistance(x1, y1, x2, y2) {
     return Math.hypot(x2 - x1, y2 - y1);
 }
 
+function isEvolutionSkill(skillId) {
+    return SKILL_DB[skillId]?.type === 'evolution';
+}
+
 function spawnFloatingText(x, y, text, color) {
     damageTexts.push({ x, y, text, color, life: 1.0 });
+}
+
+function spawnEnemyDeathParticles(en) {
+    let particleCount = 14;
+    for (let i = 0; i < particleCount; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let speed = 60 + Math.random() * 60;
+        deathParticles.push({
+            x: en.x,
+            y: en.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 40,
+            life: 0.8 + Math.random() * 0.4,
+            radius: 4 + Math.random() * 4,
+            color: en.particleColor || en.color,
+            alpha: 1
+        });
+    }
 }
 
 function addExp(amount) {
@@ -542,7 +632,8 @@ function addExp(amount) {
     if (player.exp >= player.expToNext) {
         player.exp -= player.expToNext;
         player.level++;
-        player.expToNext = Math.floor(player.expToNext * 1.2);
+        let milestoneBonus = Math.floor(player.level / 5) * 0.05; // 5레벨마다 추가 난이도 증가
+        player.expToNext = Math.floor(player.expToNext * 1.2 * (1 + milestoneBonus));
         triggerLevelUp();
     }
     updateHudText();
@@ -558,8 +649,8 @@ function triggerLevelUp() {
     // 가능한 스킬 풀 작성
     let pool = [];
 
-    // 보유 스킬 칸 체크 (8칸 제한)
-    let activeSkillCount = Object.keys(player.skills).filter(k => player.skills[k] > 0).length;
+    // 보유 스킬 칸 체크 (8칸 제한, 진화 스킬은 칸을 사용하지 않음)
+    let activeSkillCount = Object.keys(player.skills).filter(k => player.skills[k] > 0 && !isEvolutionSkill(k)).length;
     let isFull = activeSkillCount >= 8;
 
     // 진화 조건 체크
@@ -642,8 +733,8 @@ function updateSkillHud() {
     if (!inv) return;
     inv.innerHTML = '';
 
-    // 현재 보유 중인 스킬 리스트 (레벨 1 이상)
-    let activeSkills = Object.keys(player.skills).filter(id => player.skills[id] > 0);
+    // 현재 보유 중인 일반 스킬 리스트 (레벨 1 이상, 진화 스킬은 8칸에 포함되지 않음)
+    let activeSkills = Object.keys(player.skills).filter(id => player.skills[id] > 0 && !isEvolutionSkill(id));
 
     // UI에 총 8칸 (4열 2행) 렌더링
     for (let i = 0; i < 8; i++) {
@@ -786,10 +877,16 @@ function update(dt) {
     gameTime += dt;
     frameCount++;
     player.magnetTimer = Math.max(0, player.magnetTimer - dt);
+    playerHitFlash = Math.max(0, playerHitFlash - dt);
 
     // 패시브 적용
     let speedMult = 1 + (player.skills['caffeine'] ? player.skills['caffeine'] * 0.15 : 0);
     let coolMult = 1 - (player.skills['keyboard'] ? player.skills['keyboard'] * 0.1 : 0);
+
+    // 이동 속도 상한 (기본 속도의 2배까지)
+    const maxSpeed = 150 * 2;
+    let maxSpeedMult = Math.min(maxSpeed / player.speed, 2);
+    speedMult = Math.min(speedMult, maxSpeedMult);
 
     // 플레이어 이동
     let dx = 0; let dy = 0;
@@ -870,12 +967,12 @@ function update(dt) {
 
         if (isEvo || pLvl > 0) {
             let count = isEvo ? 4 : (pLvl === 5 ? 3 : (pLvl >= 3 ? 2 : 1));
-            weaponsState.printTimer = (isEvo ? 0.6 : 1.2 - (pLvl * 0.1)) * coolMult;
+            weaponsState.printTimer = (isEvo ? 0.6 * 4 : 1.2 - (pLvl * 0.1)) * coolMult;
 
             if (isEvo) {
                 // 사방으로 발사
                 let evoCount = 6;
-                weaponsState.printTimer = 0.4 * coolMult;
+                weaponsState.printTimer = 0.4 * 4 * coolMult;
                 for (let i = 0; i < evoCount; i++) {
                     let a = (Math.PI * 2 / evoCount) * i + (gameTime * 5); // 회전하며 난사
                     projectiles.push({
@@ -917,44 +1014,80 @@ function update(dt) {
     if (rrLvl > 0 || isRREvo) {
         let count = isRREvo ? 5 : (1 + rrLvl);
         let rrSpeed = isRREvo ? 3.5 : 2 + (rrLvl * 0.2);
-        let radius = 80 + (rrLvl * 10);
+        let outerRadius = (80 + (rrLvl * 10)) * 2;
         let damage = isRREvo ? Math.round(40 * 1.5) : Math.round((15 + (rrLvl * 5)) * 1.5);
 
+        weaponsState.roundRobin.angle += rrSpeed * dt;
+        let rotateFraction = rrSpeed * dt / (Math.PI * 2);
+        let phase = weaponsState.roundRobin.phase;
+
+        if (phase === 'out' || phase === 'growing') {
+            weaponsState.roundRobin.progress = Math.min(1, weaponsState.roundRobin.progress + rotateFraction);
+        } else if (phase === 'shrinking') {
+            weaponsState.roundRobin.progress = Math.max(0, weaponsState.roundRobin.progress - rotateFraction);
+        } else if (phase === 'hidden') {
+            weaponsState.roundRobin.hiddenTimer -= dt;
+            if (weaponsState.roundRobin.hiddenTimer <= 0) {
+                weaponsState.roundRobin.phase = 'growing';
+                weaponsState.roundRobin.progress = 0;
+            }
+        }
+
+        if (weaponsState.roundRobin.angle >= Math.PI * 2) {
+            weaponsState.roundRobin.angle -= Math.PI * 2;
+            if (phase === 'out') {
+                weaponsState.roundRobin.phase = 'shrinking';
+            } else if (phase === 'shrinking') {
+                weaponsState.roundRobin.phase = 'hidden';
+                weaponsState.roundRobin.hiddenTimer = 3.0;
+            } else if (phase === 'growing') {
+                weaponsState.roundRobin.phase = 'out';
+            }
+        }
+
+        let phaseRadius = outerRadius * weaponsState.roundRobin.progress;
+        let isAttackPhase = weaponsState.roundRobin.phase === 'out' && weaponsState.roundRobin.progress > 0.1;
+        let offsetAngle = weaponsState.roundRobin.angle;
+
         for (let i = 0; i < count; i++) {
-            let angle = (gameTime * rrSpeed) + ((Math.PI * 2 / count) * i);
-            let hx = player.x + Math.cos(angle) * radius;
-            let hy = player.y + Math.sin(angle) * radius;
+            let angle = offsetAngle + ((Math.PI * 2 / count) * i);
+            let hx = player.x + Math.cos(angle) * phaseRadius;
+            let hy = player.y + Math.sin(angle) * phaseRadius;
 
-            // 시각화용 데이터는 draw에서 바로 계산하지만 타격 판정은 여기서
-            // 무기로서의 히트 박스 (간이 계산)
-            enemies.forEach(en => {
-                let dist = getDistance(hx, hy, en.x, en.y);
-                if (dist < en.radius + 15) {
-                    if (!en.lastHitTime) en.lastHitTime = {};
-                    let sourceId = 'hammer_' + i;
-                    if (gameTime - (en.lastHitTime[sourceId] || 0) > 0.4) {
-                        en.hp -= damage;
-                        en.lastHitTime[sourceId] = gameTime;
-                        spawnFloatingText(en.x, en.y, damage.toString(), '#fcd34d');
+            if (isAttackPhase) {
+                let hitSomething = false;
+                enemies.forEach(en => {
+                    let dist = getDistance(hx, hy, en.x, en.y);
+                    if (dist < en.radius + 30) {
+                        if (!en.lastHitTime) en.lastHitTime = {};
+                        let sourceId = 'hammer_' + i;
+                        if (gameTime - (en.lastHitTime[sourceId] || 0) > 0.4) {
+                            en.hp -= damage;
+                            en.lastHitTime[sourceId] = gameTime;
+                            recordDamage('round_robin', damage);
+                            spawnFloatingText(en.x, en.y, damage.toString(), '#fcd34d');
 
-                        // 넉백
-                        let kbAngle = Math.atan2(en.y - hy, en.x - hx);
-                        en.x += Math.cos(kbAngle) * 20;
-                        en.y += Math.sin(kbAngle) * 20;
+                            // 넉백
+                            let kbAngle = Math.atan2(en.y - hy, en.x - hx);
+                            en.x += Math.cos(kbAngle) * 20;
+                            en.y += Math.sin(kbAngle) * 20;
+                            hitSomething = true;
+                        }
                     }
-                }
-            });
+                });
 
-            // 보스에게도 망치 히트 판정
-            if (boss) {
-                let bDist = getDistance(hx, hy, boss.x, boss.y);
-                if (bDist < boss.radius + 15) {
-                    if (!boss.lastHitTime) boss.lastHitTime = {};
-                    let sourceId = 'hammer_' + i;
-                    if (gameTime - (boss.lastHitTime[sourceId] || 0) > 0.4) {
-                        boss.hp -= damage;
-                        boss.lastHitTime[sourceId] = gameTime;
-                        spawnFloatingText(boss.x, boss.y, damage.toString(), '#fbbf24');
+                if (boss) {
+                    let bDist = getDistance(hx, hy, boss.x, boss.y);
+                    if (bDist < boss.radius + 30) {
+                        if (!boss.lastHitTime) boss.lastHitTime = {};
+                        let sourceId = 'hammer_' + i;
+                        if (gameTime - (boss.lastHitTime[sourceId] || 0) > 0.4) {
+                            boss.hp -= damage;
+                            boss.lastHitTime[sourceId] = gameTime;
+                            recordDamage('round_robin', damage);
+                            spawnFloatingText(boss.x, boss.y, damage.toString(), '#fbbf24');
+                            hitSomething = true;
+                        }
                     }
                 }
             }
@@ -1059,6 +1192,7 @@ function update(dt) {
                 let en = enemies[j];
                 if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
                     en.hp -= p.damage;
+                    recordDamage('print', p.damage);
                     hit = true;
                     spawnFloatingText(en.x, en.y, p.damage.toString(), '#f8fafc');
                     break;
@@ -1079,12 +1213,14 @@ function update(dt) {
                     enemies.forEach(en => {
                         if (getDistance(p.x, p.y, en.x, en.y) < p.maxRadius) {
                             en.hp -= p.damage;
+                            recordDamage('stack_overflow', p.damage);
                             spawnFloatingText(en.x, en.y, p.damage.toString(), '#fb7185');
                         }
                     });
                     // 보스에게도 광역 피해
                     if (boss && getDistance(p.x, p.y, boss.x, boss.y) < p.maxRadius) {
                         boss.hp -= p.damage;
+                        recordDamage('stack_overflow', p.damage);
                         spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
                     }
                     p.hasHit = true;
@@ -1099,6 +1235,7 @@ function update(dt) {
                 let en = enemies[j];
                 if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 5) {
                     en.hp -= p.damage;
+                    recordDamage('c_pointer', p.damage);
                     hit = true;
                     spawnFloatingText(en.x, en.y, p.damage.toString(), '#34d399');
                     break;
@@ -1121,6 +1258,7 @@ function update(dt) {
                     if (!p.lastHit) p.lastHit = {};
                     if (gameTime - (p.lastHit[en.name + j] || 0) > 0.5) {
                         en.hp -= p.damage;
+                        recordDamage('git_push', p.damage);
                         p.lastHit[en.name + j] = gameTime;
                         spawnFloatingText(en.x, en.y, p.damage.toString(), '#f43f5e');
                     }
@@ -1152,6 +1290,7 @@ function update(dt) {
                 if (getDistance(p.x, p.y, en.x, en.y) < en.radius + 10) {
                     if (gameTime - (p.lastHit[en.name + j] || 0) > 0.5) {
                         en.hp -= p.damage;
+                        recordDamage('memory_leak', p.damage);
                         p.lastHit[en.name + j] = gameTime;
                         spawnFloatingText(en.x, en.y, p.damage.toString(), '#a78bfa');
                     }
@@ -1161,6 +1300,7 @@ function update(dt) {
             if (boss && getDistance(p.x, p.y, boss.x, boss.y) < boss.radius + 10) {
                 if (gameTime - (p.lastHit['boss'] || 0) > 0.5) {
                     boss.hp -= p.damage;
+                    recordDamage('memory_leak', p.damage);
                     p.lastHit['boss'] = gameTime;
                     spawnFloatingText(boss.x, boss.y, p.damage.toString(), '#fbbf24');
                 }
@@ -1176,6 +1316,7 @@ function update(dt) {
             let distToPlayer = getDistance(p.x, p.y, player.x, player.y);
             if (distToPlayer < hitRadius) {
                 player.hp -= p.damage;
+                playerHitFlash = 0.25;
                 spawnFloatingText(player.x, player.y - 20, p.damage.toString(), '#ef4444');
                 p.life = 0;
                 if (player.hp <= 0) {
@@ -1195,6 +1336,20 @@ function update(dt) {
         }
     }
 
+    // 죽음 파티클 업데이트
+    for (let i = deathParticles.length - 1; i >= 0; i--) {
+        let pt = deathParticles[i];
+        pt.life -= dt;
+        if (pt.life <= 0) {
+            deathParticles.splice(i, 1);
+            continue;
+        }
+        pt.vy += 300 * dt;
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.alpha = pt.life / 1.2;
+    }
+
     // 적 스폰 (밀도 상향)
     let spawnRate = Math.max(0.1, 1.0 - (gameTime / 60) * 0.5); 
     if (frameCount % Math.floor(80 * spawnRate) === 0) {
@@ -1202,36 +1357,38 @@ function update(dt) {
         let angle = Math.random() * Math.PI * 2;
         let dist = canvas.width / 2 + 100;
 
-        let hpMult = 1;
+        let hpBonus = 0;
         let speedMult = 1;
 
-        // 0~3분: 분당 10%씩 기초 증가
-        hpMult += Math.min(3, gameTime / 60) * 0.1;
+        // 0~3분: 10초당 +3(체력 보너스)
+        hpBonus += Math.floor(Math.min(gameTime, 180) / 10) * 3;
 
-        // 3분 ~ 10분: 매 분 5%씩 추가 증가 (요청 사항)
+        // 3분 ~ 10분: 30초당 +15 추가 보너스
         if (gameTime >= 180) {
-            let midTimeMinutes = Math.min(7, Math.floor((gameTime - 180) / 60) + 1);
-            hpMult += midTimeMinutes * 0.05;
+            let midTimeSeconds = Math.min(gameTime - 180, 420);
+            hpBonus += Math.floor(midTimeSeconds / 30) * 15;
         }
 
-        // 10분 이후: 매 분 10%씩 복리 증가 (기존 로직 유지)
+        // 10분 이후: 10초마다 +20씩 추가 보너스
         if (gameTime >= 600) {
-            let over10m = Math.floor((gameTime - 600) / 60) + 1;
-            hpMult *= Math.pow(1.1, over10m);
-            speedMult *= Math.pow(1.05, over10m);
+            let over10Seconds = Math.floor((gameTime - 600) / 10) + 1;
+            hpBonus += over10Seconds * 20;
+            speedMult *= Math.pow(1.05, over10Seconds);
         }
 
         enemies.push({
             x: player.x + Math.cos(angle) * dist,
             y: player.y + Math.sin(angle) * dist,
-            hp: type.hp * hpMult,
-            maxHp: type.hp * hpMult,
+            hp: type.hp + hpBonus,
+            maxHp: type.hp + hpBonus,
             speed: type.speed * (0.8 + Math.random() * 0.4) * speedMult,
             radius: type.radius,
             color: type.color,
+            particleColor: getDominantImageColor(type.img, type.color),
             name: type.name,
             exp: type.exp,
-            img: type.img
+            img: type.img,
+            lastContactTime: 0
         });
     }
 
@@ -1279,7 +1436,7 @@ function update(dt) {
                 hp: is15m ? 15000 : (is5m ? 5000 : 2000),
                 maxHp: is15m ? 15000 : (is5m ? 5000 : 2000),
                 speed: is15m ? 80 : (is5m ? 65 : 50),
-                radius: is15m ? 70 : (is5m ? 60 : 50),
+                radius: is15m ? 140 : (is5m ? 120 : 100),
                 name: is15m ? 'Ultimate Prof. F' : (is5m ? 'Empowered Prof. C' : 'Prof. C'),
                 dir: 1,
                 attackTimer: 0,
@@ -1302,7 +1459,7 @@ function update(dt) {
             for (let i = 0; i < 20; i++) {
                 let ox = boss.x + (Math.random() - 0.5) * 80;
                 let oy = boss.y + (Math.random() - 0.5) * 80;
-                expGems.push({ x: ox, y: oy, val: 10, type: 'exp' });
+                expGems.push({ x: ox, y: oy, val: 5, type: 'exp' });
             }
             expGems.push({ x: boss.x, y: boss.y, type: 'chest' });
             spawnFloatingText(boss.x, boss.y - 40, '🎓 교수님 격퇴!', '#fbbf24');
@@ -1370,17 +1527,20 @@ function update(dt) {
         }
     }
 
+    let enemyAttackPower = Math.min(6, 1 + Math.floor(gameTime / 120) * 2);
+
     // 적 이동 및 충돌
     for (let i = enemies.length - 1; i >= 0; i--) {
         let en = enemies[i];
 
         if (en.hp <= 0) {
             // 사망 및 드랍 처리
+            spawnEnemyDeathParticles(en);
             let rnd = Math.random();
             if (rnd < 0.005) { // 0.5% 확률로 상자 드랍 (기존 족보 확률 대체)
                 expGems.push({ x: en.x, y: en.y, type: 'chest' });
             } else {
-                expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
+                expGems.push({ x: en.x, y: en.y, val: Math.max(1, Math.round(en.exp * 0.5)), type: 'exp' });
             }
             enemies.splice(i, 1);
             continue;
@@ -1413,7 +1573,12 @@ function update(dt) {
 
         // 플레이어와 충돌 (피격)
         if (currentDist < hitReach) {
-            player.hp -= 1 * dt;
+            if (!en.lastContactTime || gameTime - en.lastContactTime >= 0.1) {
+                const hitDamage = enemyAttackPower;
+                player.hp -= hitDamage;
+                playerHitFlash = 0.25;
+                en.lastContactTime = gameTime;
+            }
             if (player.hp <= 0) {
                 gameState = 'gameover';
                 document.getElementById('final-time').innerText = getFormattedTime(gameTime);
@@ -1438,21 +1603,29 @@ function update(dt) {
         let g = expGems[i];
         let dist = getDistance(player.x, player.y, g.x, g.y);
 
-        // 자석 기믹 (가까가면 천천히 빨려오고, 점점 빨라짐)
+        // 자석 기믹 (가까우면 바로 흡수)
         if (g.type === 'exp') {
+            const absorbRange = 60 * 2; // 캐릭터 픽셀 기준 상하좌우 2배
+            let magnetActive = player.magnetTimer > 0;
+
+            if (!magnetActive && dist < absorbRange) {
+                addExp(g.val || 1);
+                expGems.splice(i, 1);
+                continue;
+            }
+
             g.vx = g.vx || 0;
             g.vy = g.vy || 0;
             g.pullDelay = g.pullDelay ?? (0.35 + Math.random() * 0.35);
-            let magnetActive = player.magnetTimer > 0;
             let strength = 0;
-            let shouldAttract = magnetActive || dist < 120;
+            let shouldAttract = magnetActive || dist < absorbRange;
 
             if (shouldAttract && dist > 0) {
                 if (magnetActive) {
                     let maxRange = Math.max(canvas.width, canvas.height) * 1.6;
                     strength = Math.min(1, Math.max(0, 1 - dist / maxRange));
                 } else {
-                    strength = (120 - dist) / 120;
+                    strength = (absorbRange - dist) / absorbRange;
                 }
 
                 let basePower = magnetActive ? 420 : 1200;
@@ -1512,7 +1685,7 @@ function update(dt) {
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     let en = enemies[j];
                     // 각 적이 경험치를 드랍
-                    expGems.push({ x: en.x, y: en.y, val: en.exp, type: 'exp' });
+                    expGems.push({ x: en.x, y: en.y, val: Math.max(1, Math.round(en.exp * 0.5)), type: 'exp' });
                 }
                 enemies.length = 0; // 모든 적 제거
 
@@ -1795,6 +1968,16 @@ function draw() {
         ctx.fillRect(en.x - 15, en.y - en.radius - 10, 30 * hpRatio, 4);
     });
 
+    // 죽음 파티클 렌더링
+    deathParticles.forEach(pt => {
+        ctx.globalAlpha = Math.max(0, pt.alpha);
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    });
+
     // 보스 그리기
     if (boss) {
         let bobY = Math.sin(gameTime * 3) * 5;
@@ -1803,8 +1986,8 @@ function draw() {
         ctx.translate(boss.x, boss.y + bobY);
 
         let currentBossImg = boss.bossType === 'boss2' ? boss2Img : bossImg;
+        let bossSize = boss.radius * 2;
         if (currentBossImg.complete && currentBossImg.naturalWidth !== 0) {
-            let bossSize = Math.min(boss.bossType === 'boss2' ? 140 : 120, boss.radius * 2.5);
             try {
                 let shouldFlip = (boss.dir === 2);
                 if (boss.bossType === 'boss2') {
@@ -1816,56 +1999,61 @@ function draw() {
                 ctx.drawImage(currentBossImg, -bossSize / 2, -bossSize / 2, bossSize, bossSize);
             } catch (err) {
                 console.warn('Boss image draw failed, fallback to manual boss:', err);
-                drawManualBoss();
+                drawManualBoss(bossSize);
             }
         } else {
-            drawManualBoss();
+            drawManualBoss(bossSize);
         }
 
-        function drawManualBoss() {
+        function drawManualBoss(size) {
+            let bodyW = size * 0.6;
+            let bodyH = size * 0.4;
+            let headR = size * 0.22;
+            let headY = -bodyH * 0.8;
+
             // 보스 몸체 (교수님)
             ctx.fillStyle = boss.bossType === 'boss2' ? '#3b0764' : '#1e293b';
-            ctx.fillRect(-30, -15, 60, 50);
+            ctx.fillRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH);
 
             // 머리
             ctx.fillStyle = '#fde68a';
             ctx.beginPath();
-            ctx.arc(0, -25, 22, 0, Math.PI * 2);
+            ctx.arc(0, headY, headR, 0, Math.PI * 2);
             ctx.fill();
 
             // 안경
             ctx.strokeStyle = '#374151';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = size * 0.03;
             ctx.beginPath();
-            ctx.arc(-9, -27, 7, 0, Math.PI * 2);
-            ctx.arc(9, -27, 7, 0, Math.PI * 2);
+            ctx.arc(-size * 0.18, headY - size * 0.02, size * 0.14, 0, Math.PI * 2);
+            ctx.arc(size * 0.18, headY - size * 0.02, size * 0.14, 0, Math.PI * 2);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(-2, -27);
-            ctx.lineTo(2, -27);
+            ctx.moveTo(-size * 0.04, headY - size * 0.02);
+            ctx.lineTo(size * 0.04, headY - size * 0.02);
             ctx.stroke();
 
             // 눈 (빨간색 — 화남)
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
-            ctx.arc(-9, -27, 3, 0, Math.PI * 2);
-            ctx.arc(9, -27, 3, 0, Math.PI * 2);
+            ctx.arc(-size * 0.18, headY - size * 0.02, size * 0.06, 0, Math.PI * 2);
+            ctx.arc(size * 0.18, headY - size * 0.02, size * 0.06, 0, Math.PI * 2);
             ctx.fill();
 
             // 입 (미소? 웃음?)
             ctx.strokeStyle = '#374151';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = size * 0.04;
             ctx.beginPath();
-            ctx.arc(0, -18, 8, 0.2, Math.PI - 0.2);
+            ctx.arc(0, headY + size * 0.1, size * 0.08, 0.2, Math.PI - 0.2);
             ctx.stroke();
 
             // 넥타이
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
-            ctx.moveTo(0, -15);
-            ctx.lineTo(-6, 5);
-            ctx.lineTo(0, 0);
-            ctx.lineTo(6, 5);
+            ctx.moveTo(0, headY + size * 0.14);
+            ctx.lineTo(-size * 0.12, headY + size * 0.42);
+            ctx.lineTo(0, headY + size * 0.35);
+            ctx.lineTo(size * 0.12, headY + size * 0.42);
             ctx.fill();
 
             // "C" or "F" 표시 (가운에)
@@ -1911,10 +2099,10 @@ function draw() {
             // 왼쪽 대각선(Top-Left) 방향이 기본인 이미지를 정방향으로 보충 회전 (+135도)
             ctx.rotate(Math.atan2(p.vy, p.vx) + Math.PI * 0.75);
             if (SKILL_ICON_IMAGES.c_pointer.complete && SKILL_ICON_IMAGES.c_pointer.naturalWidth !== 0) {
-                ctx.drawImage(SKILL_ICON_IMAGES.c_pointer, -40, -40, 80, 80); // 1.5배 축소 (120 -> 80)
+                ctx.drawImage(SKILL_ICON_IMAGES.c_pointer, -32, -32, 64, 64); // 0.8배 크기
             } else {
                 ctx.fillStyle = '#10b981';
-                ctx.font = 'bold 18px Fira Code';
+                ctx.font = 'bold 14px Fira Code';
                 ctx.textAlign = 'center';
                 ctx.fillText("->*", 0, 5);
             }
@@ -1990,33 +2178,40 @@ function draw() {
     let isRREvo = player.skills['context_switch'] > 0;
     if (rrLvl > 0 || isRREvo) {
         let count = isRREvo ? 5 : (rrLvl >= 4 ? 3 : (rrLvl >= 2 ? 2 : 1));
-        let rrSpeed = isRREvo ? 4 : 2 + (rrLvl * 0.2);
-        let radius = 80 + (rrLvl * 10);
+        let rrSpeed = isRREvo ? 4 * 0.25 : 2 + (rrLvl * 0.2);
+        let outerRadius = (80 + (rrLvl * 10)) * 2;
+        let phaseRadius = outerRadius * weaponsState.roundRobin.progress;
+        let offsetAngle = weaponsState.roundRobin.angle;
+        let visualAlpha = Math.max(0.05, weaponsState.roundRobin.progress);
 
-        for (let i = 0; i < count; i++) {
-            let angle = (gameTime * rrSpeed) + ((Math.PI * 2 / count) * i);
-            let hx = player.x + Math.cos(angle) * radius;
-            let hy = player.y + Math.sin(angle) * radius;
+        if (weaponsState.roundRobin.phase !== 'hidden' && weaponsState.roundRobin.progress >= 0.05) {
+            for (let i = 0; i < count; i++) {
+                let angle = offsetAngle + ((Math.PI * 2 / count) * i);
+                let hx = player.x + Math.cos(angle) * phaseRadius;
+                let hy = player.y + Math.sin(angle) * phaseRadius;
 
-            ctx.save();
-            ctx.translate(hx, hy);
-            ctx.rotate(angle + Math.PI / 2); // 회전 방향 맞춰서
+                ctx.save();
+                ctx.translate(hx, hy);
+                ctx.rotate(angle + Math.PI / 2); // 회전 방향 맞춰서
+                ctx.globalAlpha = visualAlpha;
 
-            if (SKILL_ICON_IMAGES.round_robin.complete && SKILL_ICON_IMAGES.round_robin.naturalWidth !== 0) {
-                ctx.drawImage(SKILL_ICON_IMAGES.round_robin, -20, -20, 40, 40);
-            } else {
-                // 망치 그리기 (아이콘 또는 도형)
-                ctx.fillStyle = '#78350f';
-                ctx.fillRect(-2, -15, 4, 30);
-                // 망치 머리
-                ctx.fillStyle = isRREvo ? '#f43f5e' : '#cbd5e1'; // 진화시 붉은망치
-                ctx.fillRect(-10, -20, 20, 15);
-                ctx.fillStyle = '#0f172a';
-                ctx.font = '10px Fira Code';
-                ctx.fillText("RR", 0, -10);
+                if (SKILL_ICON_IMAGES.round_robin.complete && SKILL_ICON_IMAGES.round_robin.naturalWidth !== 0) {
+                    ctx.drawImage(SKILL_ICON_IMAGES.round_robin, -40, -40, 80, 80);
+                } else {
+                    // 망치 그리기 (아이콘 또는 도형)
+                    ctx.fillStyle = '#78350f';
+                    ctx.fillRect(-4, -30, 8, 60);
+                    // 망치 머리
+                    ctx.fillStyle = isRREvo ? '#f43f5e' : '#cbd5e1'; // 진화시 붉은망치
+                    ctx.fillRect(-20, -40, 40, 30);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = '18px Fira Code';
+                    ctx.fillText("RR", 0, -20);
+                }
+
+                ctx.restore();
+                ctx.globalAlpha = 1;
             }
-
-            ctx.restore();
         }
     }
 
@@ -2060,13 +2255,13 @@ function draw() {
         ctx.restore();
 
         let hpRatio = player.hp / player.maxHp;
-        let pWidth = 40;
-        let barY = player.y - destH - 15;
+        let pWidth = 60;
+        let barY = player.y + 12;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 5);
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 5);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 8);
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 8);
     } else {
         ctx.fillStyle = '#3b82f6';
         ctx.beginPath();
@@ -2074,13 +2269,13 @@ function draw() {
         ctx.fill();
 
         let hpRatio = player.hp / player.maxHp;
-        let pWidth = 40;
-        let barY = player.y - 18 - 15;
+        let pWidth = 60;
+        let barY = player.y + 22;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 5);
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 5);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth, 8);
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(player.x - pWidth / 2, barY, pWidth * Math.max(0, hpRatio), 8);
     }
 
     // 데미지 텍스트
@@ -2100,6 +2295,11 @@ function draw() {
     });
 
     ctx.restore();
+
+    if (playerHitFlash > 0) {
+        ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(0.35, playerHitFlash * 1.2)})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     // === 보스 WARNING 오버레이 (화면 고정 좌표) ===
     if (bossWarning) {
