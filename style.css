@@ -386,21 +386,28 @@ body {
     align-items: center;
 }
 
-#nickname-input {
+.nickname-input-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+}
+
+#nickname-input, #school-input {
     background: #f0f9ff;
     border: 2px solid #111827;
     border-radius: 8px;
     padding: 10px 14px;
     color: var(--text-main);
     font-family: inherit;
-    font-size: 16px;
-    width: 200px;
+    font-size: 14px;
+    width: 140px;
     outline: none;
     transition: all 0.2s;
     font-weight: bold;
 }
 
-#nickname-input:focus {
+#nickname-input:focus, #school-input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 8px var(--accent-glow);
 }
@@ -697,11 +704,15 @@ body {
 }
 
 #leaderboard-table tbody tr td:nth-child(2) {
+    color: #475569;
+}
+
+#leaderboard-table tbody tr td:nth-child(3) {
     color: var(--accent);
     font-weight: bold;
 }
 
-#leaderboard-table tbody tr td:nth-child(3) {
+#leaderboard-table tbody tr td:nth-child(4) {
     color: #fbbf24;
 }
 

@@ -69,6 +69,7 @@ window.loadLeaderboard = async function () {
 
         tr.innerHTML = `
             <td>${medal}</td>
+            <td>${escapeHtml(s.school || '-')}</td>
             <td>${escapeHtml(s.nickname)}</td>
             <td>${getFormattedTime(s.time)}</td>
             <td>Lv.${s.level}</td>
@@ -87,9 +88,11 @@ function escapeHtml(text) {
 
 // 점수 등록 버튼 핸들러
 window.submitScore = async function () {
+    const schoolInput = document.getElementById('school-input');
     const input = document.getElementById('nickname-input');
     const btn = document.getElementById('submit-score-btn');
     const status = document.getElementById('submit-status');
+    const school = schoolInput.value.trim();
     const nickname = input.value.trim();
 
     if (!nickname) {
@@ -103,12 +106,13 @@ window.submitScore = async function () {
     status.textContent = '등록 중...';
     status.className = 'submit-status';
 
-    const result = await submitScoreToStorage(nickname, gameTime, player.level);
+    const result = await submitScoreToStorage(school, nickname, gameTime, player.level);
 
     if (result.success) {
         status.textContent = '✅ 기록이 등록되었습니다!';
         status.className = 'submit-status success';
         btn.textContent = '등록 완료';
+        if (schoolInput) schoolInput.disabled = true;
         input.disabled = true;
         loadLeaderboard();
     } else {
@@ -125,15 +129,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Enter키로 닉네임 등록
 window.addEventListener('DOMContentLoaded', () => {
-    const input = document.getElementById('nickname-input');
-    if (input) {
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                submitScore();
-            }
-        });
-    }
+    const schoolInput = document.getElementById('school-input');
+    const nicknameInput = document.getElementById('nickname-input');
+    const onEnter = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitScore();
+        }
+    };
+    if (schoolInput) schoolInput.addEventListener('keydown', onEnter);
+    if (nicknameInput) nicknameInput.addEventListener('keydown', onEnter);
 });
 
 // === 게임 상태 및 데이터 ===

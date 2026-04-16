@@ -72,8 +72,9 @@ async function saveLocalScores(scores) {
 }
 
 // 점수 등록
-async function submitScoreToStorage(nickname, time, level) {
+async function submitScoreToStorage(school, nickname, time, level) {
     const record = {
+        school: school || '-',
         nickname: nickname,
         time: time,
         level: level,
