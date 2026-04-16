@@ -671,14 +671,16 @@ function triggerLevelUp() {
     let pool = [];
 
     // 보유 스킬 칸 체크 (8칸 제한, 진화 스킬은 칸을 사용하지 않음)
-    let activeSkillCount = Object.keys(player.skills).filter(k => player.skills[k] > 0 && !isEvolutionSkill(k)).length;
+    let activeSkillCount = Object.keys(player.skills).filter(id => {
+        return player.skills[id] > 0 && SKILL_DB[id] && SKILL_DB[id].type !== 'evolution';
+    }).length;
     let isFull = activeSkillCount >= 8;
 
     // 진화 조건 체크
-    if (player.skills['print'] === 5 && player.skills['keyboard'] > 0 && !player.skills['auto_test']) {
+    if (player.skills['print'] >= 4 && player.skills['keyboard'] > 0 && !player.skills['auto_test']) {
         pool.push(SKILL_DB['auto_test']);
     }
-    if (player.skills['round_robin'] === 5 && player.skills['caffeine'] > 0 && !player.skills['context_switch']) {
+    if (player.skills['round_robin'] >= 4 && player.skills['caffeine'] > 0 && !player.skills['context_switch']) {
         pool.push(SKILL_DB['context_switch']);
     }
 
@@ -687,8 +689,10 @@ function triggerLevelUp() {
         if (s.type === 'evolution') return; // 진화는 조건부로만
 
         // 진화 완료 시 하위 조합 스킬들이 풀에 다시 등장하지 않도록 예외 처리
-        if ((player.skills['auto_test'] || 0) > 0 && (s.id === 'print' || s.id === 'keyboard')) return;
-        if ((player.skills['context_switch'] || 0) > 0 && (s.id === 'round_robin' || s.id === 'caffeine')) return;
+        const hasAutoTest = (player.skills['auto_test'] || 0) > 0;
+        const hasContextSwitch = (player.skills['context_switch'] || 0) > 0;
+        if (hasAutoTest && (s.id === 'print' || s.id === 'keyboard')) return;
+        if (hasContextSwitch && (s.id === 'round_robin' || s.id === 'caffeine')) return;
 
         let currentLvl = player.skills[s.id] || 0;
         if (currentLvl < s.max) {
@@ -704,8 +708,9 @@ function triggerLevelUp() {
     let choices = pool.slice(0, 3);
 
     if (choices.length === 0) {
-        // 더이상 올릴 스킬이 없으면 체력이나 돈 보상
-        choices.push({ id: 'heal', name: '핫식스 (회복)', desc: '체력을 30 회복하고 이동속도가 15 증가합니다.', max: 1 });
+        // 더이상 올릴 스킬이 없으면 체력이나 돈 보상 (핫식스)
+        // 만약 진화 조건이 거의 다 되었는데 슬롯이 꽉 찬 경우라면 여기서 힌트를 줄 수도 있지만, 일단 핫식스 기본 제공
+        choices.push({ id: 'heal', name: '핫식스 (회복)', desc: '체력을 30 회복하고 이동속도가 15 증가합니다. (모든 스킬 만랩 시 등장)', max: 1 });
     }
 
     choices.forEach(c => {
@@ -755,7 +760,9 @@ function updateSkillHud() {
     inv.innerHTML = '';
 
     // 현재 보유 중인 일반 스킬 리스트 (레벨 1 이상, 진화 스킬은 8칸에 포함되지 않음)
-    let activeSkills = Object.keys(player.skills).filter(id => player.skills[id] > 0 && !isEvolutionSkill(id));
+    let activeSkills = Object.keys(player.skills).filter(id => {
+        return player.skills[id] > 0 && SKILL_DB[id] && SKILL_DB[id].type !== 'evolution';
+    });
 
     // UI에 총 8칸 (4열 2행) 렌더링
     for (let i = 0; i < 8; i++) {
