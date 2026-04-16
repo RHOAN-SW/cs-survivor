@@ -33,8 +33,17 @@ async function getLocalScores() {
             return [];
         }
         
-        // 배열이 아니면 배열로 변환
-        const scores = Array.isArray(data) ? data : Object.values(data || {});
+        // 객체 {id: record} 를 배열 [{id, ...record}] 로 변환
+        let scores = [];
+        if (Array.isArray(data)) {
+            scores = data.filter(s => s !== null).map((s, index) => ({ id: index, ...s }));
+        } else {
+            scores = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            }));
+        }
+        
         const sorted = scores.sort((a, b) => b.time - a.time);
         
         return sorted;
@@ -45,33 +54,7 @@ async function getLocalScores() {
     }
 }
 
-// Firebase Realtime Database에 리더보드 저장
-async function saveLocalScores(scores) {
-    try {
-        const topScores = scores.slice(0, 50);
-        const url = `${FIREBASE_DB_URL}/leaderboard.json?auth=${FIREBASE_API_KEY}`;
-        
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(topScores)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Firebase API 오류: ${response.status}`);
-        }
-        
-        return true;
-    } catch (e) {
-        // 폴백: localStorage
-        localStorage.setItem('cs_survivor_leaderboard', JSON.stringify(scores.slice(0, 50)));
-        return false;
-    }
-}
-
-// 점수 등록
+// 점수 등록 (개별 POST 방식)
 async function submitScoreToStorage(school, nickname, time, level) {
     const record = {
         school: school || '-',
@@ -82,12 +65,19 @@ async function submitScoreToStorage(school, nickname, time, level) {
     };
 
     try {
-        const scores = await getLocalScores();
-        scores.push(record);
-        scores.sort((a, b) => b.time - a.time);
-        if (scores.length > 50) scores.length = 50;
+        const url = `${FIREBASE_DB_URL}/leaderboard.json?auth=${FIREBASE_API_KEY}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(record)
+        });
         
-        await saveLocalScores(scores);
+        if (!response.ok) {
+            throw new Error(`Firebase API 오류: ${response.status}`);
+        }
+        
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
@@ -97,4 +87,32 @@ async function submitScoreToStorage(school, nickname, time, level) {
 // 리더보드 가져오기 (Firebase)
 async function fetchLeaderboard() {
     return await getLocalScores();
+}
+
+// 점수 삭제 (관리자용 - 개별 ID 기반)
+async function deleteScoreFromStorage(id, password) {
+    const ADMIN_PASSWORD = "admin123"; // 임시 비번
+    
+    if (password !== ADMIN_PASSWORD) {
+        return { success: false, error: "비밀번호가 틀렸습니다." };
+    }
+
+    if (!id && id !== 0) {
+        return { success: false, error: "삭제할 기록의 ID가 유효하지 않습니다." };
+    }
+
+    try {
+        const url = `${FIREBASE_DB_URL}/leaderboard/${id}.json?auth=${FIREBASE_API_KEY}`;
+        const response = await fetch(url, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Firebase API 오류: ${response.status}`);
+        }
+        
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
 }

@@ -42,6 +42,9 @@ window.addEventListener('resize', resizeCanvas);
 // 리더보드 UI 렌더링
 // ============================
 
+let isAdminMode = false;
+let adminClickCount = 0;
+
 window.loadLeaderboard = async function () {
     const tbody = document.getElementById('leaderboard-tbody');
     const emptyMsg = document.getElementById('leaderboard-empty');
@@ -67,6 +70,11 @@ window.loadLeaderboard = async function () {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
         }) : '-';
 
+        // 관리자 모드인 경우 삭제 버튼 추가
+        const deleteBtnHtml = isAdminMode 
+            ? `<td class="delete-rank-btn" onclick="deleteRankingItem('${s.id}')">❌</td>` 
+            : '';
+
         tr.innerHTML = `
             <td>${medal}</td>
             <td>${escapeHtml(s.school || '-')}</td>
@@ -74,12 +82,54 @@ window.loadLeaderboard = async function () {
             <td>${getFormattedTime(s.time)}</td>
             <td>Lv.${s.level}</td>
             <td>${dateStr}</td>
+            ${deleteBtnHtml}
         `;
         tbody.appendChild(tr);
     });
 };
 
-// XSS 방지
+// 관리자 랭킹 삭제 함수
+window.deleteRankingItem = async function(id) {
+    const password = prompt("기록을 삭제하려면 관리자 비밀번호를 입력하세요.");
+    if (!password) return;
+
+    const result = await deleteScoreFromStorage(id, password);
+    if (result.success) {
+        alert("기록이 삭제되었습니다.");
+        loadLeaderboard();
+    } else {
+        alert("삭제 실패: " + result.error);
+    }
+};
+
+// 관리자 모드 활성화 (제목 5번 클릭)
+window.addEventListener('DOMContentLoaded', () => {
+    const lbTitle = document.querySelector('#leaderboard-header h2');
+    if (lbTitle) {
+        lbTitle.style.cursor = 'pointer';
+        lbTitle.addEventListener('click', () => {
+            adminClickCount++;
+            if (adminClickCount >= 5) {
+                isAdminMode = !isAdminMode;
+                adminClickCount = 0;
+                alert(isAdminMode ? "관리자 모드가 활성화되었습니다. (삭제 버튼 표시)" : "관리자 모드가 해제되었습니다.");
+                loadLeaderboard();
+            }
+        });
+    }
+});
+
+// XSS 및 스타일 주입 방지
+function sanitizeInput(text) {
+    if (!text) return "";
+    // HTML 태그 제거
+    let sanitized = text.replace(/<[^>]*>?/gm, '');
+    // CSS 관련 키워드 및 특수문자 제거 (속성 지정 방지)
+    sanitized = sanitized.replace(/[{}()\[\];:'"]/g, '');
+    return sanitized.trim();
+}
+
+// HTML 이스케이프 (출력용)
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -92,8 +142,10 @@ window.submitScore = async function () {
     const input = document.getElementById('nickname-input');
     const btn = document.getElementById('submit-score-btn');
     const status = document.getElementById('submit-status');
-    const school = schoolInput.value.trim();
-    const nickname = input.value.trim();
+    
+    // 입력값 정화 (HTML/CSS 태그 제거)
+    const school = sanitizeInput(schoolInput.value);
+    const nickname = sanitizeInput(input.value);
 
     if (!nickname) {
         status.textContent = '닉네임을 입력해주세요!';
