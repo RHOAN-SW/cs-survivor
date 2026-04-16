@@ -1,9 +1,0 @@
-{
-  "rules": {
-    ".read": true,
-    "leaderboard": {
-      ".write": "newData.exists() && (!data.exists() || newData.parent().child('admin_secret').val() === 'YOUR_SECRET')",
-      ".validate": "newData.hasChildren(['school', 'nickname', 'time', 'level', 'date']) || newData.isArray()"
-    }
-  }
-}

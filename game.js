@@ -42,9 +42,6 @@ window.addEventListener('resize', resizeCanvas);
 // 리더보드 UI 렌더링
 // ============================
 
-let isAdminMode = false;
-let adminClickCount = 0;
-
 window.loadLeaderboard = async function () {
     const tbody = document.getElementById('leaderboard-tbody');
     const emptyMsg = document.getElementById('leaderboard-empty');
@@ -70,54 +67,17 @@ window.loadLeaderboard = async function () {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
         }) : '-';
 
-        // 관리자 모드인 경우 삭제 버튼 추가
-        const deleteBtnHtml = isAdminMode 
-            ? `<td class="delete-rank-btn" onclick="deleteRankingItem('${s.id}')">❌</td>` 
-            : '';
-
         tr.innerHTML = `
             <td>${medal}</td>
             <td>${escapeHtml(s.school || '-')}</td>
             <td>${escapeHtml(s.nickname)}</td>
-            <td>${getFormattedTime(s.time)}</td>
-            <td>Lv.${s.level}</td>
-            <td>${dateStr}</td>
-            ${deleteBtnHtml}
+            <td>${escapeHtml(getFormattedTime(s.time))}</td>
+            <td>Lv.${escapeHtml(String(s.level))}</td>
+            <td>${escapeHtml(dateStr)}</td>
         `;
         tbody.appendChild(tr);
     });
 };
-
-// 관리자 랭킹 삭제 함수
-window.deleteRankingItem = async function(id) {
-    const password = prompt("기록을 삭제하려면 관리자 비밀번호를 입력하세요.");
-    if (!password) return;
-
-    const result = await deleteScoreFromStorage(id, password);
-    if (result.success) {
-        alert("기록이 삭제되었습니다.");
-        loadLeaderboard();
-    } else {
-        alert("삭제 실패: " + result.error);
-    }
-};
-
-// 관리자 모드 활성화 (제목 5번 클릭)
-window.addEventListener('DOMContentLoaded', () => {
-    const lbTitle = document.querySelector('#leaderboard-header h2');
-    if (lbTitle) {
-        lbTitle.style.cursor = 'pointer';
-        lbTitle.addEventListener('click', () => {
-            adminClickCount++;
-            if (adminClickCount >= 5) {
-                isAdminMode = !isAdminMode;
-                adminClickCount = 0;
-                alert(isAdminMode ? "관리자 모드가 활성화되었습니다. (삭제 버튼 표시)" : "관리자 모드가 해제되었습니다.");
-                loadLeaderboard();
-            }
-        });
-    }
-});
 
 // XSS 및 스타일 주입 방지
 function sanitizeInput(text) {
@@ -158,7 +118,11 @@ window.submitScore = async function () {
     status.textContent = '등록 중...';
     status.className = 'submit-status';
 
-    const result = await submitScoreToStorage(school, nickname, gameTime, player.level);
+    // 수치 데이터 타입 강제 변환 (XSS 대비)
+    const finalTime = Number(gameTime) || 0;
+    const finalLevel = Number(player.level) || 1;
+
+    const result = await submitScoreToStorage(school, nickname, finalTime, finalLevel);
 
     if (result.success) {
         status.textContent = '✅ 기록이 등록되었습니다!';

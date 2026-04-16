@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "leaderboard": {
+      // 누구나 랭킹을 읽을 수 있습니다.
+      ".read": true,
+      
+      "$score_id": {
+        // [원천 차단] 새로운 등록만 허용하고, 모든 수정과 삭제를 차단합니다.
+        // 웹사이트 코드로도, 외부 도구로도 절대 삭제가 불가능합니다.
+        ".write": "!data.exists()",
+        
+        // 데이터 형식 검증
+        ".validate": "
+          newData.hasChildren(['nickname', 'time', 'level']) && 
+          newData.child('level').isNumber() && 
+          newData.child('time').isNumber() &&
+          newData.child('level').val() < 2000 && 
+          !newData.child('school').val().contains('CHAT_MSG')
+        "
+      }
+    }
+  }
+}
